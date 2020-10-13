@@ -66,9 +66,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CodeFile1.cs" />
-    <Compile Include="Serv.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Serv.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
