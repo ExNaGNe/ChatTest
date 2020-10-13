@@ -28,7 +28,7 @@ namespace Serv
 
         public UserServ()
         {
-            IPEndPoint user = new IPEndPoint(IPAddress.Parse(IP_USER), PORT_USER);
+            IPEndPoint userserv = new IPEndPoint(IPAddress.Parse(IP_USER), PORT_USER);
             IPEndPoint db = new IPEndPoint(IPAddress.Parse(IP_DB), PORT_DB);
             IPEndPoint lobby = new IPEndPoint(IPAddress.Parse(IP_LOBBY), PORT_LOBBY);
 
@@ -46,13 +46,22 @@ namespace Serv
             Get_db();
             */
 
-            Lobbyclient = new TcpClient(user);
+            Lobbyclient = new TcpClient(userserv);
             Lobbyclient.Connect(lobby);
             Lobbystream = Lobbyclient.GetStream();
 
             Thread lobby_th = new Thread(new ThreadStart(Lobby_th));
             lobby_th.Start();
-            lobby_th.Join();
+
+            TcpListener listen = new TcpListener(userserv);
+            listen.Start();
+            while (th_flag)
+            { 
+                TcpClient client = listen.AcceptTcpClient();
+                NetworkStream stream = client.GetStream();
+                Thread cla_thread = new Thread(() => User_th(stream));
+                cla_thread.Start();
+            }
         }
 
         void Get_db()
@@ -72,6 +81,11 @@ namespace Serv
                     Console.WriteLine(Encoding.UTF8.GetString(buf));
                 }
             }
+        }
+
+        void User_th(NetworkStream stream)
+        {
+            
         }
 
         void Lobby_th()
