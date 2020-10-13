@@ -10,16 +10,14 @@ using System.Threading;
 
 namespace Serv
 {
-    class Serv
+    class UserServ
     {
         static void Main(string[] args)
         {
             UserServ user = new UserServ();
+            user.Run();
         }
-    }
 
-    class UserServ
-    {
         //TcpClient DBclient;
         //readonly NetworkStream DBstream;
         TcpClient Lobbyclient;
@@ -36,29 +34,19 @@ namespace Serv
 
         public UserServ()
         {
-            /*  DB 접속
-            DBclient = new TcpClient(user);
-            DBclient.Connect(db);
-            DBstream = DBclient.GetStream();
-
-            string query = "SELECT friendlist.*, users.nickname " +
-                "FROM friendlist inner join users on users.id = friendlist.friend_id";
-            byte[] buf = Encoding.UTF8.GetBytes(query);
-            DBstream.Write(BitConverter.GetBytes(buf.Length), 0, sizeof(int));
-            DBstream.Write(buf, 0, buf.Length);
-
-            Get_db();
-            */
-
             Lobbyclient = new TcpClient(userPoint);
             Lobbyclient.Connect(lobbyPoint);
             Lobbystream = Lobbyclient.GetStream();
 
             Thread lobby_th = new Thread(new ThreadStart(Lobby_th));
             lobby_th.Start();
+        }
 
+        public void Run()
+        {
             TcpListener listen = new TcpListener(userPoint);
             listen.Start();
+
             while (th_flag)
             {
                 TcpClient client = listen.AcceptTcpClient();
@@ -74,7 +62,7 @@ namespace Serv
                 id = id.Split(",".ToCharArray())[0];
 
                 User user = new User(new Info(id, nick), stream, users, users_mutex);
-                RefreshEvent += new Refreshing(user.Refreshing);
+                RefreshEvent += new Refreshing(user.Refresh);
                 users_mutex.WaitOne();
                 users.Add(user);
                 users_mutex.ReleaseMutex();
@@ -148,7 +136,7 @@ namespace Serv
             DBstream = DBclient.GetStream();
         }
 
-        public void Refreshing()
+        public void Refresh()
         {
             Thread thread = new Thread(User_th);
             thread.Start();
@@ -167,7 +155,6 @@ namespace Serv
                 stream.Write(len, 0, sizeof(int));
                 stream.Write(buf, 0, buf.Length);
             }
-
             //친구 리스트 전송
             string query = $"{GET_FIRENDS}{info.id}'";
             buf = Encoding.UTF8.GetBytes(query);
