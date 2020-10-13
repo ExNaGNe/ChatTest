@@ -1,0 +1,6 @@
+C:\Users\iotpc\Desktop\project\C#\Chat\ChatTest\UserServ\bin\Debug\UserServ.exe.config
+C:\Users\iotpc\Desktop\project\C#\Chat\ChatTest\UserServ\bin\Debug\UserServ.exe
+C:\Users\iotpc\Desktop\project\C#\Chat\ChatTest\UserServ\bin\Debug\UserServ.pdb
+C:\Users\iotpc\Desktop\project\C#\Chat\ChatTest\UserServ\obj\Debug\Serv.csproj.CoreCompileInputs.cache
+C:\Users\iotpc\Desktop\project\C#\Chat\ChatTest\UserServ\obj\Debug\UserServ.exe
+C:\Users\iotpc\Desktop\project\C#\Chat\ChatTest\UserServ\obj\Debug\UserServ.pdb
