@@ -28,11 +28,11 @@ namespace Serv
         IPEndPoint userPoint = new IPEndPoint(IPAddress.Parse(IP_USER), PORT_USER);
         IPEndPoint dbPoint = new IPEndPoint(IPAddress.Parse(IP_DB), PORT_DB);
         IPEndPoint lobbyPoint = new IPEndPoint(IPAddress.Parse(IP_LOBBY), PORT_LOBBY);
+        private Mutex users_mutex = new Mutex(false,"user mutex");
+        List<UserList> users = new List<UserList>();
 
         public UserServ()
         {
-            
-
             /*  DB 접속
             DBclient = new TcpClient(user);
             DBclient.Connect(db);
@@ -59,9 +59,18 @@ namespace Serv
             while (th_flag)
             { 
                 TcpClient client = listen.AcceptTcpClient();
-                NetworkStream stream = client.GetStream();
-                Thread cla_thread = new Thread(() => User_th(stream));
-                cla_thread.Start();
+                NetworkStream stream =  client.GetStream();
+                byte[] buf = new byte[sizeof(int)];
+                stream.Read(buf, 0, sizeof(int));
+                int len = BitConverter.ToInt32(buf, 0);
+                buf = new byte[len];
+                stream.Read(buf, 0, len);
+
+                string id = Encoding.UTF8.GetString(buf);
+                UserList user = new UserList(id, STATE.ONLINE, stream, users_mutex);
+                users_mutex.WaitOne();
+                users.Add(user);
+                users_mutex.ReleaseMutex();
             }
         }
 
@@ -82,23 +91,6 @@ namespace Serv
                     Console.WriteLine(Encoding.UTF8.GetString(buf));
                 }
             }
-        }
-
-        void User_th(NetworkStream stream)
-        {
-            stream.Read()
-
-            TcpClient DBclient = new TcpClient(userPoint);
-            DBclient.Connect(dbPoint);
-            NetworkStream DBstream = DBclient.GetStream();
-
-            string query = "SELECT friendlist.*, users.nickname " +
-                "FROM friendlist inner join users on users.id = friendlist.friend_id";
-            byte[] buf = Encoding.UTF8.GetBytes(query);
-            DBstream.Write(BitConverter.GetBytes(buf.Length), 0, sizeof(int));
-            DBstream.Write(buf, 0, buf.Length);
-
-            Get_db();
         }
 
         void Lobby_th()
@@ -132,5 +124,66 @@ namespace Serv
         public const string IP_LOBBY = "10.10.20.47";
         public const int PORT_LOBBY = 5001;
 
+        //public const string UPDATE_STATE = "update users set state = 1 where id = '";
+        public const string GET_FIRENDS = "SELECT friendlist.friend_id, users.nickname, users.state " +
+            "FROM friendlist inner join users on users.id = friendlist.friend_id where friendlist.id = '";
+
+        public enum STATE
+        {
+            OFFLINE,
+            ONLINE,
+            BUSY,
+            HIDE
+        }
+    }
+
+    public class UserList
+    {
+        public string id { get; private set; }
+        public STATE state { get; private set; }
+        public NetworkStream stream { get; private set; }
+        Mutex mutex { get; private set; }
+        public delegate void 
+
+        public UserList()
+        { }
+
+        public UserList(string id, STATE state,NetworkStream stream, Mutex mutex)
+        {
+            this.id = id;
+            this.state = state;
+            this.stream = stream;
+            this.mutex = mutex;
+
+            Thread thread = new Thread(User_th);
+        }
+
+        void User_th()
+        {
+            IPEndPoint userPoint = new IPEndPoint(IPAddress.Parse(IP_USER), PORT_USER);
+            IPEndPoint dbPoint = new IPEndPoint(IPAddress.Parse(IP_DB), PORT_DB);
+            TcpClient DBclient = new TcpClient(userPoint);
+            DBclient.Connect(dbPoint);
+            NetworkStream DBstream = DBclient.GetStream();
+
+            string query = $"{GET_FIRENDS}{id}'";
+            byte[] buf = Encoding.UTF8.GetBytes(query);
+            DBstream.Write(BitConverter.GetBytes(buf.Length), 0, sizeof(int));
+            DBstream.Write(buf, 0, buf.Length);
+
+            buf = new byte[4];
+            DBstream.Read(buf, 0, sizeof(int));
+            int num = BitConverter.ToInt32(buf, 0);
+            if(num < 0)
+            {
+                Console.WriteLine("친구 리스트 DB 접근 에러");
+                return;
+            }
+        }
+
+        void Friend_th()
+        {
+
+        }
     }
 }
