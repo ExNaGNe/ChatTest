@@ -25,11 +25,12 @@ namespace Serv
         TcpClient Lobbyclient;
         readonly NetworkStream Lobbystream;
         bool th_flag = true;
-        IPEndPoint userPoint = new IPEndPoint(IPAddress.Parse(IP_USER), PORT_USER);
+        IPEndPoint userPoint = new IPEndPoint(IPAddress.Parse(IP_USERSERV), PORT_USERSERV);
         IPEndPoint dbPoint = new IPEndPoint(IPAddress.Parse(IP_DB), PORT_DB);
         IPEndPoint lobbyPoint = new IPEndPoint(IPAddress.Parse(IP_LOBBY), PORT_LOBBY);
         private Mutex users_mutex = new Mutex(false, "user mutex");
         List<User> users = new List<User>();
+        //List<Info> infos = new List<Info>();
         public delegate void Refreshing();
         public event Refreshing RefreshEvent;
 
@@ -77,7 +78,7 @@ namespace Serv
                 users_mutex.WaitOne();
                 users.Add(user);
                 users_mutex.ReleaseMutex();
-                RefreshEvent();
+                //RefreshEvent();
             }
         }
 
@@ -106,8 +107,10 @@ namespace Serv
             {
                 byte[] buf = new byte[sizeof(int)];
                 Lobbystream.Read(buf, 0, sizeof(int));
-                if (BitConverter.ToInt32(buf, 0) > 0)
+                int len = BitConverter.ToInt32(buf, 0);
+                if ( len> 0)
                 {
+
                     Console.WriteLine($"들어온 신호:{BitConverter.ToInt32(buf, 0)}");
                 }
                 else
@@ -126,7 +129,7 @@ namespace Serv
         public NetworkStream stream { get; private set; }
         List<User> users;
         Mutex mutex { get; set; }
-        IPEndPoint userPoint = new IPEndPoint(IPAddress.Parse(IP_USER), PORT_USER);
+        IPEndPoint ServPoint = new IPEndPoint(IPAddress.Parse(IP_USERSERV), PORT_USERSERV);
         IPEndPoint dbPoint = new IPEndPoint(IPAddress.Parse(IP_DB), PORT_DB);
         TcpClient DBclient;
         NetworkStream DBstream;
@@ -140,7 +143,7 @@ namespace Serv
             this.stream = stream;
             this.users = users;
             this.mutex = mutex;
-            DBclient = new TcpClient(userPoint);
+            DBclient = new TcpClient(ServPoint);
             DBclient.Connect(dbPoint);
             DBstream = DBclient.GetStream();
         }
@@ -153,13 +156,21 @@ namespace Serv
 
         void User_th()    //유저 리스트, 친구 리스트 전송 쓰레드
         {
-            List<string> friends = new List<string>();
-
+            var friends = new List<string>();
             //유저 리스트 전송
+            var buf = BitConverter.GetBytes(users.Count());
+            stream.Write(buf, 0, sizeof(int));
+            foreach(User temp in users)
+            {
+                buf = Encoding.UTF8.GetBytes(temp.info.GetString());
+                var len = BitConverter.GetBytes(buf.Length);
+                stream.Write(len, 0, sizeof(int));
+                stream.Write(buf, 0, buf.Length);
+            }
 
             //친구 리스트 전송
             string query = $"{GET_FIRENDS}{info.id}'";
-            byte[] buf = Encoding.UTF8.GetBytes(query);
+            buf = Encoding.UTF8.GetBytes(query);
             DBstream.Write(BitConverter.GetBytes(buf.Length), 0, sizeof(int));
             DBstream.Write(buf, 0, buf.Length);
 
@@ -211,6 +222,10 @@ namespace Serv
             this.state = state;
             this.location = location;
         }
+        public string GetString()
+        {
+            return $"{id},{nick_name},{state},{location}";
+        }
         //UserCp CopyUsers(User user)
         //{
         //    UserCp copy = new UserCp(ref user.id, ref user.state);
@@ -220,15 +235,15 @@ namespace Serv
 
     static public partial class CONST
     {
-        public const string IP_USER = "10.10.20.48";
-        public const int PORT_USER = 0;
+        public const string IP_USERSERV = "10.10.20.48";
+        public const int PORT_USERSERV = 0;
         public const string IP_DB = "10.10.20.213";
         public const int PORT_DB = 10000;
         public const string IP_LOBBY = "10.10.20.47";
         public const int PORT_LOBBY = 5001;
 
         //public const string UPDATE_STATE = "update users set state = 1 where id = '";
-        public const string GET_FIRENDS = "SELECT friendlist.friend_id, users.nickname, users.state " +
+        public const string GET_FIRENDS = "SELECT friendlist.friend_id, users.nickname, users.state, users.location " +
             "FROM friendlist inner join users on users.id = friendlist.friend_id where friendlist.id = '";
 
         public enum STATE
