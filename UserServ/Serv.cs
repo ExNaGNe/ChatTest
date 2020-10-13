@@ -20,17 +20,18 @@ namespace Serv
 
     class UserServ
     {
-        TcpClient DBclient;
-        readonly NetworkStream DBstream;
+        //TcpClient DBclient;
+        //readonly NetworkStream DBstream;
         TcpClient Lobbyclient;
         readonly NetworkStream Lobbystream;
         bool th_flag = true;
+        IPEndPoint userPoint = new IPEndPoint(IPAddress.Parse(IP_USER), PORT_USER);
+        IPEndPoint dbPoint = new IPEndPoint(IPAddress.Parse(IP_DB), PORT_DB);
+        IPEndPoint lobbyPoint = new IPEndPoint(IPAddress.Parse(IP_LOBBY), PORT_LOBBY);
 
         public UserServ()
         {
-            IPEndPoint userserv = new IPEndPoint(IPAddress.Parse(IP_USER), PORT_USER);
-            IPEndPoint db = new IPEndPoint(IPAddress.Parse(IP_DB), PORT_DB);
-            IPEndPoint lobby = new IPEndPoint(IPAddress.Parse(IP_LOBBY), PORT_LOBBY);
+            
 
             /*  DB 접속
             DBclient = new TcpClient(user);
@@ -46,14 +47,14 @@ namespace Serv
             Get_db();
             */
 
-            Lobbyclient = new TcpClient(userserv);
-            Lobbyclient.Connect(lobby);
+            Lobbyclient = new TcpClient(userPoint);
+            Lobbyclient.Connect(lobbyPoint);
             Lobbystream = Lobbyclient.GetStream();
 
             Thread lobby_th = new Thread(new ThreadStart(Lobby_th));
             lobby_th.Start();
 
-            TcpListener listen = new TcpListener(userserv);
+            TcpListener listen = new TcpListener(userPoint);
             listen.Start();
             while (th_flag)
             { 
@@ -64,20 +65,20 @@ namespace Serv
             }
         }
 
-        void Get_db()
+        void Get_db(NetworkStream stream)
         {
             byte[] buf = new byte[sizeof(int)];
-            DBstream.Read(buf, 0, sizeof(int));
+            stream.Read(buf, 0, sizeof(int));
             int num = BitConverter.ToInt32(buf, 0);
             if (num > 0)
             {
                 for (int i = 0; i < num; ++i)
                 {
                     buf = new byte[sizeof(int)];
-                    DBstream.Read(buf, 0, sizeof(int));
+                    stream.Read(buf, 0, sizeof(int));
                     num = BitConverter.ToInt32(buf, 0);
                     buf = new byte[num];
-                    DBstream.Read(buf, 0, num);
+                    stream.Read(buf, 0, num);
                     Console.WriteLine(Encoding.UTF8.GetString(buf));
                 }
             }
@@ -85,7 +86,19 @@ namespace Serv
 
         void User_th(NetworkStream stream)
         {
-            
+            stream.Read()
+
+            TcpClient DBclient = new TcpClient(userPoint);
+            DBclient.Connect(dbPoint);
+            NetworkStream DBstream = DBclient.GetStream();
+
+            string query = "SELECT friendlist.*, users.nickname " +
+                "FROM friendlist inner join users on users.id = friendlist.friend_id";
+            byte[] buf = Encoding.UTF8.GetBytes(query);
+            DBstream.Write(BitConverter.GetBytes(buf.Length), 0, sizeof(int));
+            DBstream.Write(buf, 0, buf.Length);
+
+            Get_db();
         }
 
         void Lobby_th()
