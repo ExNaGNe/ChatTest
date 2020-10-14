@@ -167,6 +167,8 @@ namespace Serv
             void Push(int sign)
             {
                 string id = string.Empty;
+                string num = string.Empty;
+                string title = string.Empty;
                 var buf = new byte[sizeof(int)];
                 stream.Read(buf, 0, sizeof(int));       //문자열 길이 읽음
                 int len = BitConverter.ToInt32(buf, 0);
@@ -174,7 +176,11 @@ namespace Serv
                 stream.Read(buf, 0, len);               //문자열 읽음
                 string origin = Encoding.UTF8.GetString(buf);
                 if (sign == (int)SIGN.INVITE)
-                    id = id.Split(",".ToCharArray())[0];
+                { 
+                    id = origin.Split(",".ToCharArray())[0];
+                    num = origin.Split(",".ToCharArray())[1];
+                    title = origin.Split(",".ToCharArray())[2];
+                }
                 else
                     id = origin;
                 Serv.users_mutex.WaitOne();
@@ -188,7 +194,7 @@ namespace Serv
                     buf = BitConverter.GetBytes(sign);
                     temp.stream.Write(buf, 0, sizeof(int));         //사인 전송
                     if(sign == (int) SIGN.INVITE)
-                        buf = Encoding.UTF8.GetBytes(origin);
+                        buf = Encoding.UTF8.GetBytes(info.GetString()+$",{num},{title}");
                     else
                         buf = Encoding.UTF8.GetBytes(info.GetString());
                     temp.stream.Write(BitConverter.GetBytes(buf.Length), 0, sizeof(int));  //문자열 길이 전송
@@ -251,10 +257,12 @@ namespace Serv
                 MyMutex.WaitOne();
                 var buf = BitConverter.GetBytes(0);         //사인
                 stream.Write(buf, 0, sizeof(int));
-                buf = BitConverter.GetBytes(copy.Count());  //보낼 개수
+                buf = BitConverter.GetBytes(copy.Count(x => x.info.state != STATE.HIDE));  //보낼 개수
                 stream.Write(buf, 0, sizeof(int));
                 foreach (User temp in copy)
                 {
+                    if (temp.info.state == STATE.HIDE)
+                        continue;
                     buf = Encoding.UTF8.GetBytes(temp.info.GetString());
                     var len = BitConverter.GetBytes(buf.Length);   
                     stream.Write(len, 0, sizeof(int));      //보낼 문자열 길이
@@ -283,7 +291,10 @@ namespace Serv
                                 string row = string.Empty;
                                 foreach (string temp in reader)
                                 {
-                                    row += $"{temp},";
+                                    if (temp == STATE.HIDE.ToString())
+                                        row += $"{STATE.OFFLINE},";
+                                    else
+                                        row += $"{temp},";
                                 }
                                 row.Remove(row.Length - 1);
                                 rows.Add(row);  //보낼 행 리스트에 추가
@@ -347,7 +358,6 @@ namespace Serv
     {
         public const string IP_USERSERV = "10.10.20.48";
         public const int PORT_USERSERV = 10005;
-        public const int PORT_USERINPUT = 10006;
         public const string IP_DB = "10.10.20.213";
         public const int PORT_DB = 10000;
         public const string IP_LOBBY = "10.10.20.47";
