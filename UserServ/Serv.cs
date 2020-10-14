@@ -19,18 +19,14 @@ namespace Serv
             user.Run();
         }
 
-        //TcpClient DBclient;
-        //readonly NetworkStream DBstream;
         TcpClient Lobbyclient;
         readonly NetworkStream Lobbystream;
         bool th_flag = true;
         IPEndPoint userPoint = new IPEndPoint(IPAddress.Parse(IP_USERSERV), 0);
         IPEndPoint ServPoint = new IPEndPoint(IPAddress.Parse(IP_USERSERV), PORT_USERSERV);
-        //IPEndPoint dbPoint = new IPEndPoint(IPAddress.Parse(IP_DB), PORT_DB);
         IPEndPoint lobbyPoint = new IPEndPoint(IPAddress.Parse(IP_LOBBY), PORT_LOBBY);
-        private Mutex users_mutex = new Mutex(false, "user mutex");
-        List<User> users = new List<User>();
-        //List<Info> infos = new List<Info>();
+        private Mutex users_mutex = new Mutex(false, "usermutex");
+        public List<User> users = new List<User>();
         public delegate void Refreshing();
         public event Refreshing RefreshEvent;
 
@@ -61,12 +57,9 @@ namespace Serv
 
                 string id = Encoding.UTF8.GetString(buf);
                 string nick = id.Split(",".ToCharArray())[1];
-                string port = id.Split(",".ToCharArray())[2];
                 id = id.Split(",".ToCharArray())[0];
-                string ip = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
 
-                User user = new User(new Info(id, nick), ip, port, stream, users, users_mutex);
-                RefreshEvent += new Refreshing(user.Refresh);
+                User user = new User(new Info(id, nick), stream, this, users_mutex);
                 users_mutex.WaitOne();
                 users.Add(user);
                 users_mutex.ReleaseMutex();
@@ -112,123 +105,136 @@ namespace Serv
             }
             Lobbystream.Close();
         }
-    }
 
-    public class User
-    {
-        public Info info { get; private set; }
-        public NetworkStream stream { get; private set; }
-        List<User> users;
-        Mutex mutex { get; set; }
-        //string ip;
-        //string port;
-        IPEndPoint ClaPoint;
-        IPEndPoint ServPoint = new IPEndPoint(IPAddress.Parse(IP_USERSERV), 0);
-        //TcpClient DBclient;
-        //NetworkStream DBstream;
-
-        public User()
-        { }
-
-        public User(Info info, string ip, string port, NetworkStream stream, List<User> users, Mutex mutex)
+        public class User
         {
-            this.info = info;
-            this.stream = stream;
-            this.users = users;
-            this.mutex = mutex;
-            ClaPoint = new IPEndPoint(IPAddress.Parse(ip), int.Parse(port));
-            //this.ip = ip;
-            //this.port = port;
-            //DBclient = new TcpClient(ServPoint);
-            //DBclient.Connect(dbPoint);
-            //DBstream = DBclient.GetStream();
-            Thread thread = new Thread(User_th);
-            thread.Start();
-        }
+            public Info info { get; private set; }
+            public NetworkStream stream { get; private set; }
+            Mutex ListMutex { get; set; }
+            UserServ Serv;
+            //IPEndPoint ClaPoint;
+            //IPEndPoint ServPoint = new IPEndPoint(IPAddress.Parse(IP_USERSERV), 0);
+            public Mutex MyMutex { get; private set; }
 
-        public void Refresh()
-        {
-            Console.WriteLine($"{info.id} 동기화 진입");
-            Thread thread = new Thread(list_th);
-            thread.Start();
-        }
+            public User()
+            { }
 
-        void User_th()
-        {
-            int sign = 0;
-            TcpClient client = new TcpClient(ServPoint);
-            client.Connect(ClaPoint);
-            NetworkStream ClaStream = client.GetStream();
-            while(sign != -1)
+            public User(Info info, NetworkStream stream, UserServ serv, Mutex mutex)
             {
-                byte[] buf = new byte[sizeof(int)];
-                stream.Read()
+                this.info = info;
+                this.stream = stream;
+                ListMutex = mutex;
+                Serv = serv;
+                MyMutex = new Mutex(false, "MyMutex");
+                Serv.RefreshEvent += new Refreshing(Refresh);
+                //ClaPoint = new IPEndPoint(IPAddress.Parse(ip), int.Parse(port));
+                Thread thread = new Thread(User_th);
+                thread.Start();
             }
-        }
 
-        void list_th()    //유저 리스트, 친구 리스트 전송 쓰레드
-        {
-            mutex.WaitOne();
-            List<User> copy = users.ToList();
-            mutex.ReleaseMutex();
-            //유저 리스트 전송
-            var buf = BitConverter.GetBytes(copy.Count());
-            stream.Write(buf, 0, sizeof(int));
-            foreach(User temp in copy)
+            public void Refresh()
             {
-                buf = Encoding.UTF8.GetBytes(temp.info.GetString());
-                var len = BitConverter.GetBytes(buf.Length);
-                stream.Write(len, 0, sizeof(int));
-                stream.Write(buf, 0, buf.Length);
+                Console.WriteLine($"{info.id} 동기화 진입");
+                Thread thread = new Thread(list_th);
+                thread.Start();
             }
-            //친구 리스트 전송
-            List<string> rows = new List<string>();
-            using (MySqlConnection conn = new MySqlConnection(DB_CONN))
+
+            void User_th()
             {
-                string query = Get_FriendQuery(info.id);
-                try
+                int sign = 0;
+                //TcpClient client = new TcpClient(ServPoint);
+                //client.Connect(ClaPoint);
+                //NetworkStream ClaStream = client.GetStream();
+                while (sign != -1)
                 {
-                    if (conn.Ping() == false)
-                    {
-                        Console.WriteLine($"DB 연결 에러");
-                        return;
-                    }
-                    conn.Open();
-                    MySqlCommand comm = new MySqlCommand(query, conn);
+                    byte[] buf = new byte[sizeof(int)];
+                    buf = BitConverter.GetBytes(-1);
+                    stream.Read(buf, 0, sizeof(int));
+                    sign = BitConverter.ToInt32(buf, 0);
 
-                    using (MySqlDataReader reader = comm.ExecuteReader())
+                    switch (sign)
                     {
-                        //int field = reader.FieldCount;
-                        while (reader.Read())
+                        case 1:
+                            Console.WriteLine("친구 신청");
+                            break;
+                        case 2:
+                            Console.WriteLine("초대");
+                            break;
+                        case -1:
+                            Console.WriteLine("클라이언트 종료");
+                            Serv.RefreshEvent -= new Refreshing(Refresh);
+                            Serv.users.Remove(this);
+                            return;
+                    }
+                }
+            }
+
+            void list_th()    //유저 리스트, 친구 리스트 전송 쓰레드
+            {
+                ListMutex.WaitOne();
+                List<User> copy = Serv.users.ToList();
+                ListMutex.ReleaseMutex();
+                //유저 리스트 전송
+                MyMutex.WaitOne();
+                var buf = BitConverter.GetBytes(copy.Count());
+                stream.Write(buf, 0, sizeof(int));
+                foreach (User temp in copy)
+                {
+                    buf = Encoding.UTF8.GetBytes(temp.info.GetString());
+                    var len = BitConverter.GetBytes(buf.Length);
+                    stream.Write(len, 0, sizeof(int));
+                    stream.Write(buf, 0, buf.Length);
+                }
+                //친구 리스트 전송
+                List<string> rows = new List<string>();
+                using (MySqlConnection conn = new MySqlConnection(DB_CONN))
+                {
+                    string query = Get_FriendQuery(info.id);
+                    try
+                    {
+                        if (conn.Ping() == false)
                         {
-                            string row = string.Empty;
-                            foreach(string temp in reader)
+                            Console.WriteLine($"DB 연결 에러");
+                            return;
+                        }
+                        conn.Open();
+                        MySqlCommand comm = new MySqlCommand(query, conn);
+
+                        using (MySqlDataReader reader = comm.ExecuteReader())
+                        {
+                            //int field = reader.FieldCount;
+                            while (reader.Read())
                             {
-                                row += $"{temp},";
+                                string row = string.Empty;
+                                foreach (string temp in reader)
+                                {
+                                    row += $"{temp},";
+                                }
+                                row.Remove(row.Length - 1);
+                                rows.Add(row);
                             }
-                            row.Remove(row.Length - 1);
-                            rows.Add(row);
+                        }
+
+                        stream.Write(BitConverter.GetBytes(rows.Count), 0, sizeof(int));
+                        foreach (string temp in rows)
+                        {
+                            stream.Write(BitConverter.GetBytes(temp.Length), 0, sizeof(int));
+                            buf = Encoding.UTF8.GetBytes(temp);
+                            stream.Write(buf, 0, buf.Length);
                         }
                     }
-
-                    stream.Write(BitConverter.GetBytes(rows.Count), 0, sizeof(int));
-                    foreach(string temp in rows)
+                    catch (Exception ex)
                     {
-                        stream.Write(BitConverter.GetBytes(temp.Length), 0, sizeof(int));
-                        buf = Encoding.UTF8.GetBytes(temp);
-                        stream.Write(buf, 0, buf.Length);
+                        Console.WriteLine($"친구 리스트 전송 에러 {ex.Message}");
                     }
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"친구 리스트 전송 에러 {ex.Message}");
-                }
+                MyMutex.ReleaseMutex();
             }
-        }
 
-        string Get_FriendQuery(string id)
-        {
-            return $"{GET_FIRENDS}{info.id}'";
+            string Get_FriendQuery(string id)
+            {
+                return $"{GET_FIRENDS}{info.id}'";
+            }
         }
     }
 
