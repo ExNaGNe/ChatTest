@@ -156,17 +156,32 @@ namespace Serv
                     {
                         case 1:
                             Console.WriteLine("친구 신청");
+                            
                             break;
                         case 2:
                             Console.WriteLine("초대");
+                            stream.Read(buf, 0, sizeof(int));
+
                             break;
                         case -1:
                             Console.WriteLine("클라이언트 종료");
                             Serv.RefreshEvent -= new Refreshing(Refresh);
+                            ListMutex.WaitOne();
                             Serv.users.Remove(this);
+                            ListMutex.ReleaseMutex();
                             return;
                     }
                 }
+            }
+
+            void Push(int sign)
+            {
+                var buf = new byte[sizeof(int)];
+                stream.Read(buf, 0, sizeof(int));
+                int len = BitConverter.ToInt32(buf, 0);
+                buf = new byte[len];
+                stream.Read(buf, 0, len);
+                string id = Encoding.UTF8.GetString(buf);
             }
 
             void list_th()    //유저 리스트, 친구 리스트 전송 쓰레드
