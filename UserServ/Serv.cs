@@ -59,7 +59,7 @@ namespace Serv
                 string nick = id.Split(",".ToCharArray())[1];
                 id = id.Split(",".ToCharArray())[0];
 
-                User user = new User(new Info(id, nick), stream, this, users_mutex);
+                User user = new User(new Info(id, nick), stream, this);
                 users_mutex.WaitOne();
                 users.Add(user);
                 users_mutex.ReleaseMutex();
@@ -110,20 +110,16 @@ namespace Serv
         {
             public Info info { get; private set; }
             public NetworkStream stream { get; private set; }
-            Mutex ListMutex { get; set; }
             UserServ Serv;
-            //IPEndPoint ClaPoint;
-            //IPEndPoint ServPoint = new IPEndPoint(IPAddress.Parse(IP_USERSERV), 0);
             public Mutex MyMutex { get; private set; }
 
             public User()
             { }
 
-            public User(Info info, NetworkStream stream, UserServ serv, Mutex mutex)
+            public User(Info info, NetworkStream stream, UserServ serv)
             {
                 this.info = info;
                 this.stream = stream;
-                ListMutex = mutex;
                 Serv = serv;
                 MyMutex = new Mutex(false, "MyMutex");
                 Serv.RefreshEvent += new Refreshing(Refresh);
@@ -154,21 +150,23 @@ namespace Serv
 
                     switch (sign)
                     {
-                        case 1:
+                        case 1:     //친구 신청 보냄
                             Console.WriteLine("친구 신청");
-                            
+                            Push(sign);
                             break;
-                        case 2:
+                        case 2:     //방 초대 보냄
                             Console.WriteLine("초대");
-                            stream.Read(buf, 0, sizeof(int));
-
+                            Push(sign);
+                            break;
+                        case 3:     //친구 신청 수락
+                            Console.WriteLine("친구 신청 수락");
                             break;
                         case -1:
                             Console.WriteLine("클라이언트 종료");
                             Serv.RefreshEvent -= new Refreshing(Refresh);
-                            ListMutex.WaitOne();
+                            Serv.users_mutex.WaitOne();
                             Serv.users.Remove(this);
-                            ListMutex.ReleaseMutex();
+                            Serv.users_mutex.ReleaseMutex();
                             return;
                     }
                 }
@@ -182,13 +180,34 @@ namespace Serv
                 buf = new byte[len];
                 stream.Read(buf, 0, len);
                 string id = Encoding.UTF8.GetString(buf);
+
+                Serv.users_mutex.WaitOne();
+                List<User> copy = new List<User>(Serv.users);
+                Serv.users_mutex.ReleaseMutex();
+
+                try
+                {
+                    MyMutex.WaitOne();
+                    User temp = copy.Find(x => x.info.id == id);
+                    buf = BitConverter.GetBytes(sign);
+                    temp.stream.Write(buf, 0, sizeof(int));
+                    buf = Encoding.UTF8.GetBytes(info.GetString());
+                    len = buf.Length;
+                    temp.stream.Write(BitConverter.GetBytes(len), 0, sizeof(int));
+                    temp.stream.Write(buf, 0, len);
+                    MyMutex.ReleaseMutex();
+                }
+                catch (ArgumentNullException ex)
+                {
+                    Console.WriteLine($"초대 or 신청 실패:{ex.Message}");
+                }
             }
 
             void list_th()    //유저 리스트, 친구 리스트 전송 쓰레드
             {
-                ListMutex.WaitOne();
+                Serv.users_mutex.WaitOne();
                 List<User> copy = Serv.users.ToList();
-                ListMutex.ReleaseMutex();
+                Serv.users_mutex.ReleaseMutex();
                 //유저 리스트 전송
                 MyMutex.WaitOne();
                 var buf = BitConverter.GetBytes(copy.Count());
