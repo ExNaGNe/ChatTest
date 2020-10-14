@@ -189,8 +189,8 @@ namespace Serv
 
                 try
                 {
-                    MyMutex.WaitOne();
                     User temp = copy.Find(x => x.info.id == id);
+                    MyMutex.WaitOne();
                     buf = BitConverter.GetBytes(sign);
                     temp.stream.Write(buf, 0, sizeof(int));         //사인 전송
                     if(sign == (int) SIGN.INVITE)
