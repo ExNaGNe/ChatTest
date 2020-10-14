@@ -71,30 +71,25 @@ namespace Serv
         {
             while (th_flag)
             {
-                byte[] buf = new byte[sizeof(int)];
+                byte[] buf = BitConverter.GetBytes(0);
                 Lobbystream.Read(buf, 0, sizeof(int));
                 int len = BitConverter.ToInt32(buf, 0);
                 if ( len > 0)
                 {
                     users_mutex.WaitOne();
-                    List<User> copy = new List<User>(users);
+                    //List<User> copy = new List<User>(users);
                     users_mutex.ReleaseMutex();
-                    Console.WriteLine($"들어온 신호:{len}");
+                    Console.WriteLine($"들어온 길이:{len}");
                     buf = new byte[len];
                     Lobbystream.Read(buf, 0, len);
                     string id = Encoding.UTF8.GetString(buf).Split(",".ToCharArray())[0];
                     STATE state = (STATE) int.Parse(Encoding.UTF8.GetString(buf).Split(",".ToCharArray())[1]);
-                    foreach(User temp in copy)
-                    {
-                        if(temp.info.id == id)
-                        {
-                            users_mutex.WaitOne();
-                            temp.info.state = state;
-                            users = copy;
-                            users_mutex.ReleaseMutex();
-                            break;
-                        }
-                    }
+
+                    User temp = users.Find(x => x.info.id == id);
+                    users_mutex.WaitOne();
+                    temp.info.state = state;
+                    users_mutex.ReleaseMutex();
+
                     RefreshEvent();
                 }
                 else
@@ -121,9 +116,8 @@ namespace Serv
                 this.info = info;
                 this.stream = stream;
                 Serv = serv;
-                MyMutex = new Mutex(false, "MyMutex");
+                MyMutex = new Mutex(false, $"{info.id}Mutex");
                 Serv.RefreshEvent += new Refreshing(Refresh);
-                //ClaPoint = new IPEndPoint(IPAddress.Parse(ip), int.Parse(port));
                 Thread thread = new Thread(User_th);
                 thread.Start();
             }
@@ -138,9 +132,6 @@ namespace Serv
             void User_th()
             {
                 int sign = 0;
-                //TcpClient client = new TcpClient(ServPoint);
-                //client.Connect(ClaPoint);
-                //NetworkStream ClaStream = client.GetStream();
                 while (sign != -1)
                 {
                     byte[] buf = new byte[sizeof(int)];
@@ -150,16 +141,17 @@ namespace Serv
 
                     switch (sign)
                     {
-                        case 1:     //친구 신청 보냄
+                        case (int)SIGN.ADD_FRIEND:     //친구 신청 보냄
                             Console.WriteLine("친구 신청");
                             Push(sign);
                             break;
-                        case 2:     //방 초대 보냄
+                        case (int) SIGN.INVITE:     //방 초대 보냄
                             Console.WriteLine("초대");
                             Push(sign);
                             break;
-                        case 3:     //친구 신청 수락
+                        case (int) SIGN.ACCEPT_FRIEND:     //친구 신청 수락
                             Console.WriteLine("친구 신청 수락");
+                            Accept();
                             break;
                         case -1:
                             Console.WriteLine("클라이언트 종료");
@@ -174,13 +166,17 @@ namespace Serv
 
             void Push(int sign)
             {
+                string id = string.Empty;
                 var buf = new byte[sizeof(int)];
-                stream.Read(buf, 0, sizeof(int));
+                stream.Read(buf, 0, sizeof(int));       //문자열 길이 읽음
                 int len = BitConverter.ToInt32(buf, 0);
                 buf = new byte[len];
-                stream.Read(buf, 0, len);
-                string id = Encoding.UTF8.GetString(buf);
-
+                stream.Read(buf, 0, len);               //문자열 읽음
+                string origin = Encoding.UTF8.GetString(buf);
+                if (sign == (int)SIGN.INVITE)
+                    id = id.Split(",".ToCharArray())[0];
+                else
+                    id = origin;
                 Serv.users_mutex.WaitOne();
                 List<User> copy = new List<User>(Serv.users);
                 Serv.users_mutex.ReleaseMutex();
@@ -190,16 +186,59 @@ namespace Serv
                     MyMutex.WaitOne();
                     User temp = copy.Find(x => x.info.id == id);
                     buf = BitConverter.GetBytes(sign);
-                    temp.stream.Write(buf, 0, sizeof(int));
-                    buf = Encoding.UTF8.GetBytes(info.GetString());
-                    len = buf.Length;
-                    temp.stream.Write(BitConverter.GetBytes(len), 0, sizeof(int));
-                    temp.stream.Write(buf, 0, len);
+                    temp.stream.Write(buf, 0, sizeof(int));         //사인 전송
+                    if(sign == (int) SIGN.INVITE)
+                        buf = Encoding.UTF8.GetBytes(origin);
+                    else
+                        buf = Encoding.UTF8.GetBytes(info.GetString());
+                    temp.stream.Write(BitConverter.GetBytes(buf.Length), 0, sizeof(int));  //문자열 길이 전송
+                    temp.stream.Write(buf, 0, buf.Length);                 //문자열 전송
                     MyMutex.ReleaseMutex();
                 }
                 catch (ArgumentNullException ex)
                 {
                     Console.WriteLine($"초대 or 신청 실패:{ex.Message}");
+                }
+            }
+
+            void Accept()
+            {
+                string id = string.Empty;
+                var buf = new byte[sizeof(int)];
+                stream.Read(buf, 0, sizeof(int));       //문자열 길이 읽음
+                int len = BitConverter.ToInt32(buf, 0);
+                buf = new byte[len];
+                stream.Read(buf, 0, len);               //문자열 읽음
+                string origin = Encoding.UTF8.GetString(buf);
+                id = origin.Split(",".ToCharArray())[0];
+
+                using (MySqlConnection conn = new MySqlConnection(DB_CONN))
+                {
+                    try
+                    {
+                        conn.Open();
+                        if (conn.Ping() == false)
+                        {
+                            Console.WriteLine($"DB 연결 에러");
+                            return;
+                        }
+                        string query = Get_AcceptQuery(id, info.id);
+                        MySqlCommand comm = new MySqlCommand(query, conn);
+                        int result1 = comm.ExecuteNonQuery();
+
+                        query = Get_AcceptQuery(info.id, id);
+                        comm = new MySqlCommand(query, conn);
+                        int result2 = comm.ExecuteNonQuery();
+
+                        if(result1 != 1 || result2 != 1)
+                        {
+                            Console.WriteLine("친구 신청 수락 에러");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"친구 리스트 전송 에러 {ex.Message}");
+                    }
                 }
             }
 
@@ -210,20 +249,21 @@ namespace Serv
                 Serv.users_mutex.ReleaseMutex();
                 //유저 리스트 전송
                 MyMutex.WaitOne();
-                var buf = BitConverter.GetBytes(copy.Count());
+                var buf = BitConverter.GetBytes(0);         //사인
+                stream.Write(buf, 0, sizeof(int));
+                buf = BitConverter.GetBytes(copy.Count());  //보낼 개수
                 stream.Write(buf, 0, sizeof(int));
                 foreach (User temp in copy)
                 {
                     buf = Encoding.UTF8.GetBytes(temp.info.GetString());
-                    var len = BitConverter.GetBytes(buf.Length);
-                    stream.Write(len, 0, sizeof(int));
-                    stream.Write(buf, 0, buf.Length);
+                    var len = BitConverter.GetBytes(buf.Length);   
+                    stream.Write(len, 0, sizeof(int));      //보낼 문자열 길이
+                    stream.Write(buf, 0, buf.Length);       //유저 정보 문자열
                 }
                 //친구 리스트 전송
                 List<string> rows = new List<string>();
                 using (MySqlConnection conn = new MySqlConnection(DB_CONN))
                 {
-                    string query = Get_FriendQuery(info.id);
                     try
                     {
                         if (conn.Ping() == false)
@@ -232,6 +272,7 @@ namespace Serv
                             return;
                         }
                         conn.Open();
+                        string query = Get_FriendQuery(info.id);
                         MySqlCommand comm = new MySqlCommand(query, conn);
 
                         using (MySqlDataReader reader = comm.ExecuteReader())
@@ -245,16 +286,16 @@ namespace Serv
                                     row += $"{temp},";
                                 }
                                 row.Remove(row.Length - 1);
-                                rows.Add(row);
+                                rows.Add(row);  //보낼 행 리스트에 추가
                             }
                         }
 
-                        stream.Write(BitConverter.GetBytes(rows.Count), 0, sizeof(int));
+                        stream.Write(BitConverter.GetBytes(rows.Count), 0, sizeof(int));    //보낼 행 개수 전송
                         foreach (string temp in rows)
                         {
-                            stream.Write(BitConverter.GetBytes(temp.Length), 0, sizeof(int));
+                            stream.Write(BitConverter.GetBytes(temp.Length), 0, sizeof(int));   //보낼 행 길이 전송
                             buf = Encoding.UTF8.GetBytes(temp);
-                            stream.Write(buf, 0, buf.Length);
+                            stream.Write(buf, 0, buf.Length);           //행 전송
                         }
                     }
                     catch (Exception ex)
@@ -268,6 +309,11 @@ namespace Serv
             string Get_FriendQuery(string id)
             {
                 return $"{GET_FIRENDS}{info.id}'";
+            }
+
+            string Get_AcceptQuery(string id, string friendid)
+            {
+                return $"{GET_ACCEPT1}{info.id}','{friendid}{GET_ACCEPT2}";
             }
         }
     }
@@ -307,10 +353,11 @@ namespace Serv
         public const string IP_LOBBY = "10.10.20.47";
         public const int PORT_LOBBY = 5001;
         public const string DB_CONN = "Server=\"10.10.20.213\";Port=3306;Database=VoiceChat;Uid=root;Pwd=1234";
-
-        //public const string UPDATE_STATE = "update users set state = 1 where id = '";
         public const string GET_FIRENDS = "SELECT friendlist.friend_id, users.nickname, users.state, users.location " +
             "FROM friendlist inner join users on users.id = friendlist.friend_id where friendlist.id = '";
+        public const string GET_ACCEPT1 = "insert into friendlist values('";
+        public const string GET_ACCEPT2 = "', now())";
+        //public const string UPDATE_STATE = "update users set state = 1 where id = '";
 
         public enum STATE
         {
@@ -318,6 +365,13 @@ namespace Serv
             ONLINE,
             BUSY,
             HIDE
+        }
+
+        public enum SIGN
+        {
+            ADD_FRIEND,
+            INVITE,
+            ACCEPT_FRIEND
         }
     }
 }
