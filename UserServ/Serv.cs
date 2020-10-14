@@ -36,6 +36,7 @@ namespace Serv
             Lobbyclient.Connect(lobbyPoint);
             Lobbystream = Lobbyclient.GetStream();
 
+            Console.WriteLine("로비서버 연결됨");
             Thread lobby_th = new Thread(new ThreadStart(Lobby_th));
             lobby_th.Start();
         }
@@ -48,6 +49,7 @@ namespace Serv
             while (th_flag)
             {
                 TcpClient client = listen.AcceptTcpClient();
+                Console.WriteLine("클라이언트 연결됨");
                 NetworkStream stream = client.GetStream();
                 byte[] buf = new byte[sizeof(int)];
                 stream.Read(buf, 0, sizeof(int));
@@ -347,11 +349,6 @@ namespace Serv
         {
             return $"{id},{nick_name},{state},{location}";
         }
-        //UserCp CopyUsers(User user)
-        //{
-        //    UserCp copy = new UserCp(ref user.id, ref user.state);
-        //    return copy;
-        //}
     }
 
     static public partial class CONST
@@ -361,7 +358,7 @@ namespace Serv
         public const string IP_DB = "10.10.20.213";
         public const int PORT_DB = 10000;
         public const string IP_LOBBY = "10.10.20.47";
-        public const int PORT_LOBBY = 5001;
+        public const int PORT_LOBBY = 7000;
         public const string DB_CONN = "Server=\"10.10.20.213\";Port=3306;Database=VoiceChat;Uid=root;Pwd=1234";
         public const string GET_FIRENDS = "SELECT friendlist.friend_id, users.nickname, users.state, users.location " +
             "FROM friendlist inner join users on users.id = friendlist.friend_id where friendlist.id = '";
