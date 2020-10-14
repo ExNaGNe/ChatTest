@@ -80,7 +80,7 @@ namespace LoginServ
     static class CONST
     {
         public const string IP_USERSERV = "10.10.20.48";
-        public const int PORT_USERSERV = 0;
+        public const int PORT_USERSERV = 10005;
         public const string IP_DB = "10.10.20.213";
         public const int PORT_DB = 10000;
 
