@@ -372,9 +372,9 @@ namespace Server
 
             void Accept()
             {
-                string id = string.Empty;
-                string origin = NETSTREAM.ReadStr(stream);
-                id = origin.Split(",".ToCharArray())[0];
+                //string id = string.Empty;
+                string id = NETSTREAM.ReadStr(stream);
+                //id = origin.Split(",".ToCharArray())[0];
 
                 using (MySqlConnection conn = new MySqlConnection(DB_CONN))
                 {
@@ -387,10 +387,12 @@ namespace Server
                             return;
                         }
                         string query = Get_AcceptQuery(id, info.id);
+                        Console.WriteLine(query);
                         MySqlCommand comm = new MySqlCommand(query, conn);
                         int result1 = comm.ExecuteNonQuery();
 
                         query = Get_AcceptQuery(info.id, id);
+                        Console.WriteLine(query);
                         comm = new MySqlCommand(query, conn);
                         int result2 = comm.ExecuteNonQuery();
 
@@ -498,7 +500,7 @@ namespace Server
 
             string Get_AcceptQuery(string id, string friendid)
             {
-                return $"{GET_ACCEPT1}{info.id}','{friendid}{GET_ACCEPT2}";
+                return $"{GET_ACCEPT1}{id}','{friendid}{GET_ACCEPT2}";
             }
 
             string Del_FirendQuery(string id, string friendid)
