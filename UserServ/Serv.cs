@@ -10,6 +10,7 @@ using System.Threading;
 using System.IO;
 using System.Timers;
 using MySql.Data.MySqlClient;
+using System.Runtime.CompilerServices;
 
 namespace Server
 {
@@ -44,6 +45,7 @@ namespace Server
 
         public enum SIGN
         {
+            REFRESH,
             ADD_FRIEND,
             INVITE,
             ACCEPT_FRIEND
@@ -69,8 +71,9 @@ namespace Server
 
             foreach(string temp in str)
             {
-                stream.Write(BitConverter.GetBytes(temp.Length), 0, sizeof(int));
-                stream.Write(Encoding.UTF8.GetBytes(temp), 0, Encoding.UTF8.GetBytes(temp).Length);
+                var buf = Encoding.UTF8.GetBytes(temp);
+                stream.Write(BitConverter.GetBytes(buf.Length), 0, sizeof(int));
+                stream.Write(buf, 0, buf.Length);
             }
         }
 
@@ -80,8 +83,9 @@ namespace Server
             
             foreach (string temp in str)
             {
-                stream.Write(BitConverter.GetBytes(temp.Length), 0, sizeof(int));
-                stream.Write(Encoding.UTF8.GetBytes(temp), 0, Encoding.UTF8.GetBytes(temp).Length);
+                var buf = Encoding.UTF8.GetBytes(temp);
+                stream.Write(BitConverter.GetBytes(buf.Length), 0, sizeof(int));
+                stream.Write(buf, 0, buf.Length);
             }
         }
 
@@ -208,9 +212,6 @@ namespace Server
                     id = id.Split(",".ToCharArray())[0];
 
                     User user = new User(new Info(id, nick), stream, this);
-                    users_mutex.WaitOne();
-                    users.Add(user);
-                    users_mutex.ReleaseMutex();
                     Re_flag = true;
                 }
                 catch (Exception ex)
@@ -250,8 +251,15 @@ namespace Server
                 this.stream = stream;
                 Serv = serv;
                 MyMutex = new Mutex(false, $"{info.id}Mutex");
+
                 Thread thread = new Thread(User_th);                //클라이언트 통신 쓰레드 생성
                 thread.Start();
+
+                Serv.users_mutex.WaitOne();
+                Serv.users.Add(this);
+                Serv.users_mutex.ReleaseMutex();
+
+                Refresh();                                          //입장 후 동기화
                 Serv.RefreshEvent += new Refreshing(Refresh);       //동기화 이벤트에 추가
             }
 
@@ -292,7 +300,7 @@ namespace Server
                     }
                     catch (IOException ex)
                     {
-                        Console.WriteLine($"{info.id} 연결 끊김 {ex.Message}");
+                        Console.WriteLine($"{info.id} : {ex.Message}");
                         Disconnect();
                         return;
                     }
@@ -329,13 +337,13 @@ namespace Server
                 try
                 {
                     User temp = copy.Find(x => x.info.id == id);
-                    MyMutex.WaitOne();
-                    NETSTREAM.Write(stream, sign);              //sign 전송
+                    temp.MyMutex.WaitOne();
+                    NETSTREAM.Write(temp.stream, sign);              //sign 전송
                     if(sign == (int) SIGN.INVITE)
-                        NETSTREAM.Write(stream, info.GetString()+$",{num},{title}");
+                        NETSTREAM.Write(temp.stream, info.GetString()+$",{num},{title}");
                     else
-                        NETSTREAM.Write(stream, info.GetString());
-                    MyMutex.ReleaseMutex();
+                        NETSTREAM.Write(temp.stream, info.GetString());
+                    temp.MyMutex.ReleaseMutex();
                 }
                 catch (ArgumentNullException ex)
                 {
@@ -388,7 +396,8 @@ namespace Server
                 Serv.users_mutex.ReleaseMutex();
                 //유저 리스트 전송
                 MyMutex.WaitOne();
-                Console.WriteLine($"동기화 유저 리스트:{copy.Count()}");
+                NETSTREAM.Write(stream, (int) SIGN.REFRESH);
+                //Console.WriteLine($"동기화 유저 리스트:{copy.Count()}");
                 NETSTREAM.Write(stream, copy);
                 //친구 리스트 전송
                 List<string> rows = new List<string>();
@@ -421,7 +430,7 @@ namespace Server
                                 rows.Add(row);  //보낼 행 리스트에 추가
                             }
                         }
-                        Console.WriteLine($"동기화 친구 리스트:{rows.Count}");
+                        //Console.WriteLine($"동기화 친구 리스트:{rows.Count}");
                         NETSTREAM.Write(stream, rows);
                     }
                     catch (Exception ex)
