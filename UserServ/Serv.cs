@@ -5,13 +5,13 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Net;
 using System.Net.Sockets;
-using static Serv.CONST;
+using static Server.CONST;
 using System.Threading;
 using System.IO;
 using System.Timers;
 using MySql.Data.MySqlClient;
 
-namespace Serv
+namespace Server
 {
     static public partial class CONST
     {
@@ -74,6 +74,17 @@ namespace Serv
             }
         }
 
+        static public void Write(NetworkStream stream, IEnumerable <string> str)
+        {
+            stream.Write(BitConverter.GetBytes(str.Count()), 0, sizeof(int));
+
+            foreach (string temp in str)
+            {
+                stream.Write(BitConverter.GetBytes(temp.Length), 0, sizeof(int));
+                stream.Write(Encoding.UTF8.GetBytes(temp), 0, Encoding.UTF8.GetBytes(temp).Length);
+            }
+        }
+
         static public int ReadInt(NetworkStream stream)
         {
             var buf = BitConverter.GetBytes(-1);
@@ -110,7 +121,7 @@ namespace Serv
         IPEndPoint userPoint = new IPEndPoint(IPAddress.Parse(IP_USERSERV), 0);
         IPEndPoint ServPoint = new IPEndPoint(IPAddress.Parse(IP_USERSERV), PORT_USERSERV);
         IPEndPoint lobbyPoint = new IPEndPoint(IPAddress.Parse(IP_LOBBY), PORT_LOBBY);
-        private Mutex users_mutex = new Mutex(false, "usermutex");
+        public Mutex users_mutex = new Mutex(false, "usermutex");
         public List<User> users = new List<User>();
         public delegate void Refreshing();
         public event Refreshing RefreshEvent;
@@ -371,20 +382,13 @@ namespace Serv
             void list_th()    //유저 리스트, 친구 리스트 전송 쓰레드
             {
                 Serv.users_mutex.WaitOne();
-                List<User> copy = Serv.users.ToList();
+                var copy = from user in Serv.users
+                           where user.info.state != STATE.HIDE
+                           select user.info.GetString();
                 Serv.users_mutex.ReleaseMutex();
                 //유저 리스트 전송
                 MyMutex.WaitOne();
-                var buf = BitConverter.GetBytes(0);         //사인
-                stream.Write(buf, 0, sizeof(int));
-                buf = BitConverter.GetBytes(copy.Count(x => x.info.state != STATE.HIDE));  //보낼 개수
-                stream.Write(buf, 0, sizeof(int));
-                foreach (User temp in copy)
-                {
-                    if (temp.info.state == STATE.HIDE)
-                        continue;
-                    NETSTREAM.Write(stream, temp.info.GetString());
-                }
+                NETSTREAM.Write(stream, copy);
                 //친구 리스트 전송
                 List<string> rows = new List<string>();
                 using (MySqlConnection conn = new MySqlConnection(DB_CONN))
@@ -416,7 +420,6 @@ namespace Serv
                                 rows.Add(row);  //보낼 행 리스트에 추가
                             }
                         }
-
                         NETSTREAM.Write(stream, rows);
                     }
                     catch (Exception ex)
