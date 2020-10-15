@@ -5,11 +5,114 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Net;
 using System.Net.Sockets;
-using static Serv.CONST;
+using static Server.CONST;
 using System.Threading;
+using System.IO;
+using System.Timers;
+using MySql.Data.MySqlClient;
+using System.Runtime.CompilerServices;
+using System.Data.Common;
 
-namespace Serv
+namespace Server
 {
+    static public partial class CONST
+    {
+        public const string IP_USERSERV = "10.10.20.48";    //유저 서버 IP
+        public const int PORT_USERSERV = 10005;             //유저 서버 포트
+        //public const string IP_DB = "10.10.20.213";         //DP 서버 IP
+        //public const int PORT_DB = 10000;                   //DP 서버 포트
+        public const string IP_LOBBY = "10.10.20.47";       //로비 서버 IP
+        public const int PORT_LOBBY = 7000;                 //로비 서버 포트
+        //DP 연결 문자열
+        public const string DB_CONN = "Server=10.10.20.213;Port=3306;Database=VoiceChat;Uid=root;Pwd=1234;Charset=utf8";
+        //친구 리스트 쿼리문자열
+        public const string GET_FIRENDS = "SELECT friendlist.friend_id, users.nickname, users.state, users.location " +
+            "FROM friendlist inner join users on users.id = friendlist.friend_id where friendlist.id = '";
+        //친구 추가 문자열1
+        public const string GET_ACCEPT1 = "insert into friendlist values('";
+        //친구 추가 문자열2
+        public const string GET_ACCEPT2 = "', now())";
+        //동기화 인터벌 시간
+        public const int REFRESH_INTERVAL = 5000;
+        
+        //현재 시간 반환
+        public static string NOW() => DateTime.Now.ToString("HH:mm:ss");
+
+        public enum STATE
+        {
+            OFFLINE,
+            ONLINE,
+            BUSY,
+            HIDE
+        }
+
+        public enum SIGN
+        {
+            REFRESH,
+            ADD_FRIEND,
+            INVITE,
+            ACCEPT_FRIEND
+        }
+    }
+
+    static public class NETSTREAM
+    {
+        static public void Write(NetworkStream stream, int num)
+        {
+            stream.Write(BitConverter.GetBytes(num), 0, sizeof(int));
+        }
+
+        static public void Write(NetworkStream stream, string str)
+        {
+            stream.Write(BitConverter.GetBytes(str.Length), 0, sizeof(int));
+            stream.Write(Encoding.UTF8.GetBytes(str), 0, Encoding.UTF8.GetBytes(str).Length);
+        }
+
+        static public void Write(NetworkStream stream, List<string> str)
+        {
+            stream.Write(BitConverter.GetBytes(str.Count), 0, sizeof(int));
+
+            foreach(string temp in str)
+            {
+                var buf = Encoding.UTF8.GetBytes(temp);
+                stream.Write(BitConverter.GetBytes(buf.Length), 0, sizeof(int));
+                stream.Write(buf, 0, buf.Length);
+            }
+        }
+
+        static public void Write(NetworkStream stream, IEnumerable <string> str)
+        {
+            stream.Write(BitConverter.GetBytes(str.Count()), 0, sizeof(int));
+            
+            foreach (string temp in str)
+            {
+                var buf = Encoding.UTF8.GetBytes(temp);
+                stream.Write(BitConverter.GetBytes(buf.Length), 0, sizeof(int));
+                stream.Write(buf, 0, buf.Length);
+            }
+        }
+
+        static public int ReadInt(NetworkStream stream)
+        {
+            var buf = BitConverter.GetBytes(-1);
+            stream.Read(buf, 0, sizeof(int));
+
+            return BitConverter.ToInt32(buf, 0);
+        }
+
+        static public string ReadStr(NetworkStream stream)
+        {
+            var buf = new byte[sizeof(int)];
+            stream.Read(buf, 0, sizeof(int));
+            int len = BitConverter.ToInt32(buf, 0);
+            if (len <= 0)
+                return null;
+            buf = new byte[len];
+            stream.Read(buf, 0, len);
+            return Encoding.UTF8.GetString(buf);
+        }
+    }
+
     class UserServ
     {
         static void Main(string[] args)
@@ -18,179 +121,333 @@ namespace Serv
             user.Run();
         }
 
-        //TcpClient DBclient;
-        //readonly NetworkStream DBstream;
         TcpClient Lobbyclient;
         readonly NetworkStream Lobbystream;
         bool th_flag = true;
-        IPEndPoint userPoint = new IPEndPoint(IPAddress.Parse(IP_USERSERV), PORT_USERSERV);
-        IPEndPoint dbPoint = new IPEndPoint(IPAddress.Parse(IP_DB), PORT_DB);
+        bool Re_flag = false;
+        IPEndPoint userPoint = new IPEndPoint(IPAddress.Parse(IP_USERSERV), 0);
+        IPEndPoint ServPoint = new IPEndPoint(IPAddress.Parse(IP_USERSERV), PORT_USERSERV);
         IPEndPoint lobbyPoint = new IPEndPoint(IPAddress.Parse(IP_LOBBY), PORT_LOBBY);
-        private Mutex users_mutex = new Mutex(false, "user mutex");
-        List<User> users = new List<User>();
-        //List<Info> infos = new List<Info>();
+        public Mutex users_mutex = new Mutex(false, "usermutex");
+        public List<User> users = new List<User>();
         public delegate void Refreshing();
         public event Refreshing RefreshEvent;
+        System.Timers.Timer timer;
 
         public UserServ()
         {
+            try
+            { 
             Lobbyclient = new TcpClient(userPoint);
-            Lobbyclient.Connect(lobbyPoint);
+            Lobbyclient.Connect(lobbyPoint);                //로비서버 연결
             Lobbystream = Lobbyclient.GetStream();
 
+            Console.WriteLine($"[{NOW()}]로비서버 연결");
             Thread lobby_th = new Thread(new ThreadStart(Lobby_th));
             lobby_th.Start();
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine($"[{NOW()}]로비서버 연결 실패 {ex.Message}");
+            }
         }
 
         public void Run()
         {
-            TcpListener listen = new TcpListener(userPoint);
-            listen.Start();
+            timer = new System.Timers.Timer(REFRESH_INTERVAL);  //동기화 타이머(5초)
+            timer.Elapsed += TimerHandler;
+            timer.AutoReset = true;
 
-            while (th_flag)
-            {
-                TcpClient client = listen.AcceptTcpClient();
-                NetworkStream stream = client.GetStream();
-                byte[] buf = new byte[sizeof(int)];
-                stream.Read(buf, 0, sizeof(int));
-                int len = BitConverter.ToInt32(buf, 0);
-                buf = new byte[len];
-                stream.Read(buf, 0, len);
-
-                string id = Encoding.UTF8.GetString(buf);
-                string nick = id.Split(",".ToCharArray())[1];
-                id = id.Split(",".ToCharArray())[0];
-
-                User user = new User(new Info(id, nick), stream, users, users_mutex);
-                RefreshEvent += new Refreshing(user.Refresh);
-                users_mutex.WaitOne();
-                users.Add(user);
-                users_mutex.ReleaseMutex();
-                //RefreshEvent();
-            }
+            timer.Enabled = true;
+            Connect_Cla();          //클라이언트 연결
         }
 
-        void Get_db(NetworkStream stream)
-        {
-            byte[] buf = new byte[sizeof(int)];
-            stream.Read(buf, 0, sizeof(int));
-            int num = BitConverter.ToInt32(buf, 0);
-            if (num > 0)
-            {
-                for (int i = 0; i < num; ++i)
-                {
-                    buf = new byte[sizeof(int)];
-                    stream.Read(buf, 0, sizeof(int));
-                    num = BitConverter.ToInt32(buf, 0);
-                    buf = new byte[num];
-                    stream.Read(buf, 0, num);
-                    Console.WriteLine(Encoding.UTF8.GetString(buf));
-                }
-            }
-        }
-
-        void Lobby_th()
+        void Lobby_th()             //로비 쓰레드
         {
             while (th_flag)
             {
-                byte[] buf = new byte[sizeof(int)];
-                Lobbystream.Read(buf, 0, sizeof(int));
-                int len = BitConverter.ToInt32(buf, 0);
-                if ( len> 0)
+                try
                 {
+                    string read = NETSTREAM.ReadStr(Lobbystream);
+                    if (!string.IsNullOrEmpty(read))
+                    {
+                        Console.WriteLine($"[{NOW()}]로비로부터 받은 문자열:{read}");
+                        string id = read.Split(",".ToCharArray())[0];
+                        STATE state = (STATE)int.Parse(read.Split(",".ToCharArray())[1]);
+                        Console.WriteLine($"[{NOW()}]로비로부터 받은 값:{id},{state}");
+                        User temp = users.Find(x => x.info.id == id);
+                        users_mutex.WaitOne();
+                        temp.info.state = state;
+                        users_mutex.ReleaseMutex();
 
-                    Console.WriteLine($"들어온 신호:{BitConverter.ToInt32(buf, 0)}");
+                        Re_flag = true;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[{NOW()}]로비 쓰레드 종료");
+                        th_flag = false;
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    Console.WriteLine($"들어온 신호:{BitConverter.ToInt32(buf, 0)}");
+                    Console.WriteLine($"[{NOW()}]로그인 서버 접속 끊김");
                     th_flag = false;
                 }
             }
             Lobbystream.Close();
         }
-    }
 
-    public class User
-    {
-        public Info info { get; private set; }
-        public NetworkStream stream { get; private set; }
-        List<User> users;
-        Mutex mutex { get; set; }
-        IPEndPoint ServPoint = new IPEndPoint(IPAddress.Parse(IP_USERSERV), PORT_USERSERV);
-        IPEndPoint dbPoint = new IPEndPoint(IPAddress.Parse(IP_DB), PORT_DB);
-        TcpClient DBclient;
-        NetworkStream DBstream;
-
-        public User()
-        { }
-
-        public User(Info info, NetworkStream stream, List<User> users, Mutex mutex)
+        void Connect_Cla()          //클라이언트 연결
         {
-            this.info = info;
-            this.stream = stream;
-            this.users = users;
-            this.mutex = mutex;
-            DBclient = new TcpClient(ServPoint);
-            DBclient.Connect(dbPoint);
-            DBstream = DBclient.GetStream();
+            TcpListener listen = new TcpListener(ServPoint);
+            listen.Start();
+
+            while (th_flag)
+            {
+                try
+                {
+                    TcpClient client = listen.AcceptTcpClient();
+                    Console.WriteLine($"[{NOW()}]클라이언트 연결됨");
+                    NetworkStream stream = client.GetStream();
+
+                    string id = NETSTREAM.ReadStr(stream);
+                    string nick = id.Split(",".ToCharArray())[1];
+                    id = id.Split(",".ToCharArray())[0];
+
+                    User user = new User(new Info(id, nick), stream, this);
+                    Re_flag = true;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[{NOW()}]클라이언트 연결 실패");
+                }
+            }
+            Console.WriteLine($"[{NOW()}]클라이언트 접속 대기 종료");
         }
 
-        public void Refresh()
+        //타이머 동작
+        private void TimerHandler(object sender, ElapsedEventArgs e)
         {
-            Thread thread = new Thread(User_th);
-            thread.Start();
+            var copy = RefreshEvent;
+            if (Re_flag && copy != null)
+            {
+                Console.WriteLine($"[{NOW()}]타이머 이벤트 발생");
+                copy();
+            }
+            Re_flag = false;
         }
 
-        void User_th()    //유저 리스트, 친구 리스트 전송 쓰레드
+        //유저 클래스
+        public class User
         {
-            var friends = new List<string>();
-            //유저 리스트 전송
-            var buf = BitConverter.GetBytes(users.Count());
-            stream.Write(buf, 0, sizeof(int));
-            foreach(User temp in users)
-            {
-                buf = Encoding.UTF8.GetBytes(temp.info.GetString());
-                var len = BitConverter.GetBytes(buf.Length);
-                stream.Write(len, 0, sizeof(int));
-                stream.Write(buf, 0, buf.Length);
-            }
-            //친구 리스트 전송
-            string query = $"{GET_FIRENDS}{info.id}'";
-            buf = Encoding.UTF8.GetBytes(query);
-            DBstream.Write(BitConverter.GetBytes(buf.Length), 0, sizeof(int));
-            DBstream.Write(buf, 0, buf.Length);
+            public Info info { get; private set; }
+            public NetworkStream stream { get; private set; }
+            UserServ Serv;
+            public Mutex MyMutex { get; private set; }
 
-            buf = new byte[4];
-            DBstream.Read(buf, 0, sizeof(int));
-            int num = BitConverter.ToInt32(buf, 0);
-            if (num < 0)
+            public User()
+            { }
+
+            public User(Info info, NetworkStream stream, UserServ serv)
             {
-                Console.WriteLine("친구 리스트 DB 접근 에러");
-                return;
-            }
-            for (int i = 0; i < num; ++i)
-            {
-                DBstream.Read(buf, 0, sizeof(int));
-                int len = BitConverter.ToInt32(buf, 0);
-                buf = new byte[len];
-                DBstream.Read(buf, 0, len);
-                friends.Add(Encoding.UTF8.GetString(buf));
+                this.info = info;
+                this.stream = stream;
+                Serv = serv;
+                MyMutex = new Mutex(false, $"{info.id}Mutex");
+
+                Thread thread = new Thread(User_th);                //클라이언트 통신 쓰레드 생성
+                thread.Start();
+
+                Serv.users_mutex.WaitOne();
+                Serv.users.Add(this);
+                Serv.users_mutex.ReleaseMutex();
+
+                Refresh();                                          //입장 후 동기화
+                Serv.RefreshEvent += Refresh;       //동기화 이벤트에 추가
             }
 
-            if (friends.Count <= 0)
+            public void Refresh()
             {
-                Console.WriteLine("친구 리스트 빔");
-                stream.Write(BitConverter.GetBytes(0), 0, sizeof(int));
-                return;
+                Console.WriteLine($"[{NOW()}]{info.id} 동기화 진입");
+                Thread thread = new Thread(list_th);
+                thread.Start();
             }
 
-            stream.Write(BitConverter.GetBytes(friends.Count), 0, sizeof(int));
-            foreach (string temp in friends)
+            void User_th()
             {
-                buf = Encoding.UTF8.GetBytes(temp);
-                stream.Write(BitConverter.GetBytes(buf.Length), 0, sizeof(int));
-                stream.Write(buf, 0, buf.Length);
+                int sign = 0;
+                while (sign != -1)
+                {
+                    try
+                    {
+                        sign = NETSTREAM.ReadInt(stream);
+                        switch (sign)
+                        {
+                            case (int)SIGN.ADD_FRIEND:     //친구 신청 보냄
+                                Console.WriteLine($"[{NOW()}]친구 신청({info.id})");
+                                Push(sign);
+                                break;
+                            case (int)SIGN.INVITE:     //방 초대 보냄
+                                Console.WriteLine($"[{NOW()}]초대({info.id})");
+                                Push(sign);
+                                break;
+                            case (int)SIGN.ACCEPT_FRIEND:     //친구 신청 수락
+                                Console.WriteLine($"[{NOW()}]친구 신청 수락({info.id})");
+                                Accept();
+                                break;
+                            case -1:
+                                Console.WriteLine($"[{NOW()}]클라이언트 종료({info.id})");
+                                Disconnect();
+                                return;
+                        }
+                    }
+                    catch (IOException ex)
+                    {
+                        Console.WriteLine($"[{NOW()}]{info.id} : {ex.Message}");
+                        Disconnect();
+                        return;
+                    }
+                }
+            }
+
+            void Disconnect()
+            {
+                Serv.RefreshEvent -= Refresh;
+                Serv.users_mutex.WaitOne();
+                Serv.users.Remove(this);
+                Serv.users_mutex.ReleaseMutex();
+                stream.Close();
+            }
+
+            void Push(int sign)
+            {
+                string id = string.Empty;
+                string num = string.Empty;
+                string title = string.Empty;
+                string origin = NETSTREAM.ReadStr(stream);
+                if (sign == (int)SIGN.INVITE)
+                { 
+                    id = origin.Split(",".ToCharArray())[0];
+                    num = origin.Split(",".ToCharArray())[1];
+                    title = origin.Split(",".ToCharArray())[2];
+                }
+                else
+                    id = origin;
+                Serv.users_mutex.WaitOne();
+                List<User> copy = new List<User>(Serv.users);
+                Serv.users_mutex.ReleaseMutex();
+
+                try
+                {
+                    User temp = copy.Find(x => x.info.id == id);
+                    temp.MyMutex.WaitOne();
+                    NETSTREAM.Write(temp.stream, sign);              //sign 전송
+                    if(sign == (int) SIGN.INVITE)
+                        NETSTREAM.Write(temp.stream, info.GetString()+$",{num},{title}");
+                    else
+                        NETSTREAM.Write(temp.stream, info.GetString());
+                    temp.MyMutex.ReleaseMutex();
+                }
+                catch (ArgumentNullException ex)
+                {
+                    Console.WriteLine($"[{NOW()}]초대 or 신청 실패:{ex.Message}");
+                }
+            }
+
+            void Accept()
+            {
+                string id = string.Empty;
+                string origin = NETSTREAM.ReadStr(stream);
+                id = origin.Split(",".ToCharArray())[0];
+
+                using (MySqlConnection conn = new MySqlConnection(DB_CONN))
+                {
+                    try
+                    {
+                        conn.Open();
+                        if (conn.Ping() == false)
+                        {
+                            Console.WriteLine($"[{NOW()}]DB 연결 에러");
+                            return;
+                        }
+                        string query = Get_AcceptQuery(id, info.id);
+                        MySqlCommand comm = new MySqlCommand(query, conn);
+                        int result1 = comm.ExecuteNonQuery();
+
+                        query = Get_AcceptQuery(info.id, id);
+                        comm = new MySqlCommand(query, conn);
+                        int result2 = comm.ExecuteNonQuery();
+
+                        if(result1 != 1 || result2 != 1)
+                        {
+                            Console.WriteLine($"[{NOW()}]친구 신청 수락 에러");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[{NOW()}]친구 리스트 전송 에러 {ex.Message}");
+                    }
+                }
+            }
+
+            void list_th()    //유저 리스트, 친구 리스트 전송 쓰레드
+            {
+                Serv.users_mutex.WaitOne();
+                var copy = from user in Serv.users
+                           where user.info.state != STATE.HIDE
+                           select user.info.GetString();
+                Serv.users_mutex.ReleaseMutex();
+                //유저 리스트 전송
+                MyMutex.WaitOne();
+                NETSTREAM.Write(stream, (int) SIGN.REFRESH);
+                //Console.WriteLine($"동기화 유저 리스트:{copy.Count()}");
+                NETSTREAM.Write(stream, copy);
+                //친구 리스트 전송
+                List<string> rows = new List<string>();
+                using (MySqlConnection conn = new MySqlConnection(DB_CONN))
+                {
+                    try
+                    {
+                        conn.Open();
+                        if (conn.Ping() == false)
+                        {
+                            Console.WriteLine($"[{NOW()}]DB 연결 에러");
+                            return;
+                        }
+                        string query = Get_FriendQuery(info.id);
+                        MySqlCommand comm = new MySqlCommand(query, conn);
+
+                        using (MySqlDataReader reader = comm.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                rows.Add(GetRow(reader));  //보낼 행 리스트에 추가
+                            }
+                        }
+                        //Console.WriteLine($"동기화 친구 리스트:{rows.Count}");
+                        NETSTREAM.Write(stream, rows);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[{NOW()}]친구 리스트 전송 에러 {ex.Message}");
+                    }
+                }
+                MyMutex.ReleaseMutex();
+            }
+
+            string GetRow(MySqlDataReader reader)
+            {
+                return $"{reader[0]},{reader[1]},{reader[2]},{reader[3]}";
+            }
+
+            string Get_FriendQuery(string id)
+            {
+                return $"{GET_FIRENDS}{info.id}'";
+            }
+
+            string Get_AcceptQuery(string id, string friendid)
+            {
+                return $"{GET_ACCEPT1}{info.id}','{friendid}{GET_ACCEPT2}";
             }
         }
     }
@@ -212,33 +469,6 @@ namespace Serv
         public string GetString()
         {
             return $"{id},{nick_name},{state},{location}";
-        }
-        //UserCp CopyUsers(User user)
-        //{
-        //    UserCp copy = new UserCp(ref user.id, ref user.state);
-        //    return copy;
-        //}
-    }
-
-    static public partial class CONST
-    {
-        public const string IP_USERSERV = "10.10.20.48";
-        public const int PORT_USERSERV = 0;
-        public const string IP_DB = "10.10.20.213";
-        public const int PORT_DB = 10000;
-        public const string IP_LOBBY = "10.10.20.47";
-        public const int PORT_LOBBY = 5001;
-
-        //public const string UPDATE_STATE = "update users set state = 1 where id = '";
-        public const string GET_FIRENDS = "SELECT friendlist.friend_id, users.nickname, users.state, users.location " +
-            "FROM friendlist inner join users on users.id = friendlist.friend_id where friendlist.id = '";
-
-        public enum STATE
-        {
-            OFFLINE,
-            ONLINE,
-            BUSY,
-            HIDE
         }
     }
 }
