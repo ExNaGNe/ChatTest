@@ -22,7 +22,7 @@ namespace Serv
         public const string IP_LOBBY = "10.10.20.47";       //로비 서버 IP
         public const int PORT_LOBBY = 7000;                 //로비 서버 포트
         //DP 연결 문자열
-        public const string DB_CONN = "Server=\"10.10.20.213\";Port=3306;Database=VoiceChat;Uid=root;Pwd=1234";
+        public const string DB_CONN = "Server=10.10.20.213;Port=3306;Database=VoiceChat;Uid=root;Pwd=1234;Charset=utf8";
         //친구 리스트 쿼리문자열
         public const string GET_FIRENDS = "SELECT friendlist.friend_id, users.nickname, users.state, users.location " +
             "FROM friendlist inner join users on users.id = friendlist.friend_id where friendlist.id = '";
@@ -47,6 +47,40 @@ namespace Serv
             ADD_FRIEND,
             INVITE,
             ACCEPT_FRIEND
+        }
+    }
+
+    static public class NETSTREAM
+    {
+        static public void Write(NetworkStream stream, int num)
+        {
+            stream.Write(BitConverter.GetBytes(num), 0, sizeof(int));
+        }
+
+        static public void Write(NetworkStream stream, string str)
+        {
+            stream.Write(BitConverter.GetBytes(str.Length), 0, sizeof(int));
+            stream.Write(Encoding.UTF8.GetBytes(str), 0, Encoding.UTF8.GetBytes(str).Length);
+        }
+
+        static public int ReadInt(NetworkStream stream)
+        {
+            var buf = BitConverter.GetBytes(-1);
+            stream.Read(buf, 0, sizeof(int));
+
+            return BitConverter.ToInt32(buf, 0);
+        }
+
+        static public string ReadStr(NetworkStream stream)
+        {
+            var buf = new byte[sizeof(int)];
+            stream.Read(buf, 0, sizeof(int));
+            int len = BitConverter.ToInt32(buf, 0);
+            if (len <= 0)
+                return null;
+            buf = new byte[len];
+            stream.Read(buf, 0, len);
+            return Encoding.UTF8.GetString(buf);
         }
     }
 
@@ -99,22 +133,18 @@ namespace Serv
             Connect_Cla();          //클라이언트 연결
         }
 
-        void Lobby_th()
+        void Lobby_th()             //로비 쓰레드
         {
             while (th_flag)
             {
                 try
                 {
-                    byte[] buf = BitConverter.GetBytes(0);
-                    Lobbystream.Read(buf, 0, sizeof(int));
-                    int len = BitConverter.ToInt32(buf, 0);
-                    if (len > 0)
+                    string read = NETSTREAM.ReadStr(Lobbystream);
+                    if (!string.IsNullOrEmpty(read))
                     {
-                        Console.WriteLine($"로비로부터 받은 길이:{len}");
-                        buf = new byte[len];
-                        Lobbystream.Read(buf, 0, len);
-                        string id = Encoding.UTF8.GetString(buf).Split(",".ToCharArray())[0];
-                        STATE state = (STATE)int.Parse(Encoding.UTF8.GetString(buf).Split(",".ToCharArray())[1]);
+                        Console.WriteLine($"로비로부터 받은 문자열:{read}");
+                        string id = read.Split(",".ToCharArray())[0];
+                        STATE state = (STATE)int.Parse(read.Split(",".ToCharArray())[1]);
                         Console.WriteLine($"로비로부터 받은 값:{id},{state}");
                         User temp = users.Find(x => x.info.id == id);
                         users_mutex.WaitOne();
@@ -125,7 +155,7 @@ namespace Serv
                     }
                     else
                     {
-                        Console.WriteLine($"들어온 신호:{BitConverter.ToInt32(buf, 0)}");
+                        Console.WriteLine($"로비 쓰레드 종료");
                         th_flag = false;
                     }
                 }
@@ -138,7 +168,7 @@ namespace Serv
             Lobbystream.Close();
         }
 
-        void Connect_Cla()  //클라이언트 연결
+        void Connect_Cla()          //클라이언트 연결
         {
             TcpListener listen = new TcpListener(ServPoint);
             listen.Start();
@@ -150,13 +180,8 @@ namespace Serv
                     TcpClient client = listen.AcceptTcpClient();
                     Console.WriteLine("클라이언트 연결됨");
                     NetworkStream stream = client.GetStream();
-                    byte[] buf = new byte[sizeof(int)];
-                    stream.Read(buf, 0, sizeof(int));
-                    int len = BitConverter.ToInt32(buf, 0);
-                    buf = new byte[len];
-                    stream.Read(buf, 0, len);
 
-                    string id = Encoding.UTF8.GetString(buf);
+                    string id = NETSTREAM.ReadStr(stream);
                     string nick = id.Split(",".ToCharArray())[1];
                     id = id.Split(",".ToCharArray())[0];
 
@@ -171,17 +196,22 @@ namespace Serv
                     Console.WriteLine("클라이언트 연결 실패");
                 }
             }
+            Console.WriteLine("클라이언트 접속 대기 종료");
         }
 
+        //타이머 동작
         private void TimerHandler(object sender, ElapsedEventArgs e)
         {
             var copy = RefreshEvent;
             if (Re_flag && copy != null)
             {
+                Console.WriteLine("타이머 이벤트 발생");
                 copy();
             }
+            Re_flag = false;
         }
 
+        //유저 클래스
         public class User
         {
             public Info info { get; private set; }
@@ -198,9 +228,9 @@ namespace Serv
                 this.stream = stream;
                 Serv = serv;
                 MyMutex = new Mutex(false, $"{info.id}Mutex");
-                Serv.RefreshEvent += new Refreshing(Refresh);
-                Thread thread = new Thread(User_th);
+                Thread thread = new Thread(User_th);                //클라이언트 통신 쓰레드 생성
                 thread.Start();
+                Serv.RefreshEvent += new Refreshing(Refresh);       //동기화 이벤트에 추가
             }
 
             public void Refresh()
@@ -217,10 +247,7 @@ namespace Serv
                 {
                     try
                     {
-                        byte[] buf = new byte[sizeof(int)];
-                        buf = BitConverter.GetBytes(-1);
-                        stream.Read(buf, 0, sizeof(int));
-                        sign = BitConverter.ToInt32(buf, 0);
+                        sign = NETSTREAM.ReadInt(stream);
 
                         switch (sign)
                         {
@@ -257,6 +284,7 @@ namespace Serv
                 Serv.users_mutex.WaitOne();
                 Serv.users.Remove(this);
                 Serv.users_mutex.ReleaseMutex();
+                stream.Close();
             }
 
             void Push(int sign)
@@ -369,12 +397,12 @@ namespace Serv
                 {
                     try
                     {
+                        conn.Open();
                         if (conn.Ping() == false)
                         {
                             Console.WriteLine($"DB 연결 에러");
                             return;
                         }
-                        conn.Open();
                         string query = Get_FriendQuery(info.id);
                         MySqlCommand comm = new MySqlCommand(query, conn);
 
