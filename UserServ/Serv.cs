@@ -11,6 +11,7 @@ using System.IO;
 using System.Timers;
 using MySql.Data.MySqlClient;
 using System.Runtime.CompilerServices;
+using System.Data.Common;
 
 namespace Server
 {
@@ -33,7 +34,9 @@ namespace Server
         public const string GET_ACCEPT2 = "', now())";
         //동기화 인터벌 시간
         public const int REFRESH_INTERVAL = 5000;
-        //public const string UPDATE_STATE = "update users set state = 1 where id = '";
+        
+        //현재 시간 반환
+        public static string NOW() => DateTime.Now.ToString("HH:mm:ss");
 
         public enum STATE
         {
@@ -139,13 +142,13 @@ namespace Server
             Lobbyclient.Connect(lobbyPoint);                //로비서버 연결
             Lobbystream = Lobbyclient.GetStream();
 
-            Console.WriteLine("로비서버 연결");
+            Console.WriteLine($"[{NOW()}]로비서버 연결");
             Thread lobby_th = new Thread(new ThreadStart(Lobby_th));
             lobby_th.Start();
             }
             catch(Exception ex)
             {
-                Console.WriteLine($"로비서버 연결 실패 {ex.Message}");
+                Console.WriteLine($"[{NOW()}]로비서버 연결 실패 {ex.Message}");
             }
         }
 
@@ -168,10 +171,10 @@ namespace Server
                     string read = NETSTREAM.ReadStr(Lobbystream);
                     if (!string.IsNullOrEmpty(read))
                     {
-                        Console.WriteLine($"로비로부터 받은 문자열:{read}");
+                        Console.WriteLine($"[{NOW()}]로비로부터 받은 문자열:{read}");
                         string id = read.Split(",".ToCharArray())[0];
                         STATE state = (STATE)int.Parse(read.Split(",".ToCharArray())[1]);
-                        Console.WriteLine($"로비로부터 받은 값:{id},{state}");
+                        Console.WriteLine($"[{NOW()}]로비로부터 받은 값:{id},{state}");
                         User temp = users.Find(x => x.info.id == id);
                         users_mutex.WaitOne();
                         temp.info.state = state;
@@ -181,13 +184,13 @@ namespace Server
                     }
                     else
                     {
-                        Console.WriteLine($"로비 쓰레드 종료");
+                        Console.WriteLine($"[{NOW()}]로비 쓰레드 종료");
                         th_flag = false;
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("로그인 서버 접속 끊김");
+                    Console.WriteLine($"[{NOW()}]로그인 서버 접속 끊김");
                     th_flag = false;
                 }
             }
@@ -204,7 +207,7 @@ namespace Server
                 try
                 {
                     TcpClient client = listen.AcceptTcpClient();
-                    Console.WriteLine("클라이언트 연결됨");
+                    Console.WriteLine($"[{NOW()}]클라이언트 연결됨");
                     NetworkStream stream = client.GetStream();
 
                     string id = NETSTREAM.ReadStr(stream);
@@ -216,10 +219,10 @@ namespace Server
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("클라이언트 연결 실패");
+                    Console.WriteLine($"[{NOW()}]클라이언트 연결 실패");
                 }
             }
-            Console.WriteLine("클라이언트 접속 대기 종료");
+            Console.WriteLine($"[{NOW()}]클라이언트 접속 대기 종료");
         }
 
         //타이머 동작
@@ -228,7 +231,7 @@ namespace Server
             var copy = RefreshEvent;
             if (Re_flag && copy != null)
             {
-                Console.WriteLine("타이머 이벤트 발생");
+                Console.WriteLine($"[{NOW()}]타이머 이벤트 발생");
                 copy();
             }
             Re_flag = false;
@@ -260,12 +263,12 @@ namespace Server
                 Serv.users_mutex.ReleaseMutex();
 
                 Refresh();                                          //입장 후 동기화
-                Serv.RefreshEvent += new Refreshing(Refresh);       //동기화 이벤트에 추가
+                Serv.RefreshEvent += Refresh;       //동기화 이벤트에 추가
             }
 
             public void Refresh()
             {
-                Console.WriteLine($"{info.id} 동기화 진입");
+                Console.WriteLine($"[{NOW()}]{info.id} 동기화 진입");
                 Thread thread = new Thread(list_th);
                 thread.Start();
             }
@@ -281,26 +284,26 @@ namespace Server
                         switch (sign)
                         {
                             case (int)SIGN.ADD_FRIEND:     //친구 신청 보냄
-                                Console.WriteLine("친구 신청");
+                                Console.WriteLine($"[{NOW()}]친구 신청({info.id})");
                                 Push(sign);
                                 break;
                             case (int)SIGN.INVITE:     //방 초대 보냄
-                                Console.WriteLine("초대");
+                                Console.WriteLine($"[{NOW()}]초대({info.id})");
                                 Push(sign);
                                 break;
                             case (int)SIGN.ACCEPT_FRIEND:     //친구 신청 수락
-                                Console.WriteLine("친구 신청 수락");
+                                Console.WriteLine($"[{NOW()}]친구 신청 수락({info.id})");
                                 Accept();
                                 break;
                             case -1:
-                                Console.WriteLine("클라이언트 종료");
+                                Console.WriteLine($"[{NOW()}]클라이언트 종료({info.id})");
                                 Disconnect();
                                 return;
                         }
                     }
                     catch (IOException ex)
                     {
-                        Console.WriteLine($"{info.id} : {ex.Message}");
+                        Console.WriteLine($"[{NOW()}]{info.id} : {ex.Message}");
                         Disconnect();
                         return;
                     }
@@ -309,7 +312,7 @@ namespace Server
 
             void Disconnect()
             {
-                Serv.RefreshEvent -= new Refreshing(Refresh);
+                Serv.RefreshEvent -= Refresh;
                 Serv.users_mutex.WaitOne();
                 Serv.users.Remove(this);
                 Serv.users_mutex.ReleaseMutex();
@@ -347,7 +350,7 @@ namespace Server
                 }
                 catch (ArgumentNullException ex)
                 {
-                    Console.WriteLine($"초대 or 신청 실패:{ex.Message}");
+                    Console.WriteLine($"[{NOW()}]초대 or 신청 실패:{ex.Message}");
                 }
             }
 
@@ -364,7 +367,7 @@ namespace Server
                         conn.Open();
                         if (conn.Ping() == false)
                         {
-                            Console.WriteLine($"DB 연결 에러");
+                            Console.WriteLine($"[{NOW()}]DB 연결 에러");
                             return;
                         }
                         string query = Get_AcceptQuery(id, info.id);
@@ -377,12 +380,12 @@ namespace Server
 
                         if(result1 != 1 || result2 != 1)
                         {
-                            Console.WriteLine("친구 신청 수락 에러");
+                            Console.WriteLine($"[{NOW()}]친구 신청 수락 에러");
                         }
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"친구 리스트 전송 에러 {ex.Message}");
+                        Console.WriteLine($"[{NOW()}]친구 리스트 전송 에러 {ex.Message}");
                     }
                 }
             }
@@ -408,7 +411,7 @@ namespace Server
                         conn.Open();
                         if (conn.Ping() == false)
                         {
-                            Console.WriteLine($"DB 연결 에러");
+                            Console.WriteLine($"[{NOW()}]DB 연결 에러");
                             return;
                         }
                         string query = Get_FriendQuery(info.id);
@@ -419,9 +422,10 @@ namespace Server
                             while (reader.Read())
                             {
                                 string row = string.Empty;
-                                foreach (string temp in reader)
+                                
+                                foreach (DbDataRecord temp in reader)
                                 {
-                                    if (temp == STATE.HIDE.ToString())
+                                    if (temp.ToString() == STATE.HIDE.ToString())
                                         row += $"{STATE.OFFLINE},";
                                     else
                                         row += $"{temp},";
@@ -435,7 +439,7 @@ namespace Server
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"친구 리스트 전송 에러 {ex.Message}");
+                        Console.WriteLine($"[{NOW()}]친구 리스트 전송 에러 {ex.Message}");
                     }
                 }
                 MyMutex.ReleaseMutex();
