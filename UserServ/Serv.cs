@@ -435,7 +435,7 @@ namespace Server
                         {
                             Console.WriteLine($"[{NOW()}]친구 삭제 에러");
                         }
-                        Serv.Re_flag = false;
+                        Serv.Re_flag = true;
                     }
                     catch (Exception ex)
                     {
