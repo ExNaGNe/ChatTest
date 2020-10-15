@@ -225,7 +225,7 @@ namespace Server
                     id = id.Split(",".ToCharArray())[0];
 
                     User user = new User(new Info(id, nick), stream, this);
-                    //Re_flag = true;
+                    Re_flag = true;
                 }
                 catch 
                 {
@@ -398,10 +398,11 @@ namespace Server
                         {
                             Console.WriteLine($"[{NOW()}]친구 신청 수락 에러");
                         }
+                        Serv.Re_flag = true;
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"[{NOW()}]친구 리스트 전송 에러 {ex.Message}");
+                        Console.WriteLine($"[{NOW()}]친구 신청 수락 에러 {ex.Message}");
                     }
                 }
             }
@@ -432,6 +433,7 @@ namespace Server
                         {
                             Console.WriteLine($"[{NOW()}]친구 삭제 에러");
                         }
+                        Serv.Re_flag = false;
                     }
                     catch (Exception ex)
                     {
