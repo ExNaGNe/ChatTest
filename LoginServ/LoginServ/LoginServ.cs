@@ -124,7 +124,7 @@ namespace LoginServ
             try
             {
                 int sign = NETSTREAM.ReadInt(stream);
-
+                Console.WriteLine($"[{NOW()}]클라이언트 신호: {sign}");
                 id = NETSTREAM.ReadStr(stream);
                 switch (sign)
                 {
@@ -174,6 +174,7 @@ namespace LoginServ
                             reader.Read();
                             NETSTREAM.Write(stream, 1);
                             NETSTREAM.Write(stream, GetLoignRow(reader));
+                            Console.WriteLine($"[{NOW()}]로그인 성공: {id}");
                         }
                         else
                             NETSTREAM.Write(stream, 0);
@@ -203,15 +204,16 @@ namespace LoginServ
 
                     using (MySqlDataReader reader = comm.ExecuteReader())
                     {
-                        if (reader.HasRows)
+                        if (!reader.HasRows)
                         {
-                            //reader.Read();
+                            reader.Close();
                             query = Get_SigninQuery(id, pass, nick);
                             comm = new MySqlCommand(query, conn);
                             int result = comm.ExecuteNonQuery();
                             if(result > 0)
                             {
                                 NETSTREAM.Write(stream, 2);
+                                Console.WriteLine($"[{NOW()}]회원가입 성공: {id}");
                             }
                         }
                         else
