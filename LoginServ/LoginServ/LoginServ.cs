@@ -121,6 +121,7 @@ namespace LoginServ
             string id = string.Empty;
             string pass = string.Empty;
             string nick = string.Empty;
+
             try
             {
                 int sign = NETSTREAM.ReadInt(stream);
@@ -145,10 +146,12 @@ namespace LoginServ
                         return;
                 }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Console.WriteLine($"[{NOW()}] 클라이언트 접속 에러 {ex.Message}");
+                return;
             }
+
             stream.Close();
         }
 
@@ -183,6 +186,7 @@ namespace LoginServ
                 catch (Exception ex)
                 {
                     Console.WriteLine($"[{NOW()}]로그인 에러: {ex.Message}");
+                    return;
                 }
             }
         }
@@ -223,6 +227,7 @@ namespace LoginServ
                 catch (Exception ex)
                 {
                     Console.WriteLine($"[{NOW()}]회원가입 에러: {ex.Message}");
+                    return;
                 }
             }
         }
