@@ -8,9 +8,41 @@ using System.Net.Sockets;
 using static Serv.CONST;
 using System.Threading;
 using MySql.Data.MySqlClient;
+using System.IO;
 
 namespace Serv
 {
+    static public partial class CONST
+    {
+        public const string IP_USERSERV = "10.10.20.48";
+        public const int PORT_USERSERV = 10005;
+        public const string IP_DB = "10.10.20.213";
+        public const int PORT_DB = 10000;
+        public const string IP_LOBBY = "10.10.20.47";
+        public const int PORT_LOBBY = 7000;
+        public const string DB_CONN = "Server=\"10.10.20.213\";Port=3306;Database=VoiceChat;Uid=root;Pwd=1234";
+        public const string GET_FIRENDS = "SELECT friendlist.friend_id, users.nickname, users.state, users.location " +
+            "FROM friendlist inner join users on users.id = friendlist.friend_id where friendlist.id = '";
+        public const string GET_ACCEPT1 = "insert into friendlist values('";
+        public const string GET_ACCEPT2 = "', now())";
+        //public const string UPDATE_STATE = "update users set state = 1 where id = '";
+
+        public enum STATE
+        {
+            OFFLINE,
+            ONLINE,
+            BUSY,
+            HIDE
+        }
+
+        public enum SIGN
+        {
+            ADD_FRIEND,
+            INVITE,
+            ACCEPT_FRIEND
+        }
+    }
+
     class UserServ
     {
         static void Main(string[] args)
@@ -22,6 +54,7 @@ namespace Serv
         TcpClient Lobbyclient;
         readonly NetworkStream Lobbystream;
         bool th_flag = true;
+        bool Re_flag = false;
         IPEndPoint userPoint = new IPEndPoint(IPAddress.Parse(IP_USERSERV), 0);
         IPEndPoint ServPoint = new IPEndPoint(IPAddress.Parse(IP_USERSERV), PORT_USERSERV);
         IPEndPoint lobbyPoint = new IPEndPoint(IPAddress.Parse(IP_LOBBY), PORT_LOBBY);
@@ -32,13 +65,20 @@ namespace Serv
 
         public UserServ()
         {
+            try
+            { 
             Lobbyclient = new TcpClient(userPoint);
             Lobbyclient.Connect(lobbyPoint);
             Lobbystream = Lobbyclient.GetStream();
 
-            Console.WriteLine("로비서버 연결됨");
+            Console.WriteLine("로비서버 연결");
             Thread lobby_th = new Thread(new ThreadStart(Lobby_th));
             lobby_th.Start();
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine($"로비서버 연결 실패 {ex.Message}");
+            }
         }
 
         public void Run()
@@ -48,24 +88,31 @@ namespace Serv
 
             while (th_flag)
             {
-                TcpClient client = listen.AcceptTcpClient();
-                Console.WriteLine("클라이언트 연결됨");
-                NetworkStream stream = client.GetStream();
-                byte[] buf = new byte[sizeof(int)];
-                stream.Read(buf, 0, sizeof(int));
-                int len = BitConverter.ToInt32(buf, 0);
-                buf = new byte[len];
-                stream.Read(buf, 0, len);
+                try
+                {
+                    TcpClient client = listen.AcceptTcpClient();
+                    Console.WriteLine("클라이언트 연결됨");
+                    NetworkStream stream = client.GetStream();
+                    byte[] buf = new byte[sizeof(int)];
+                    stream.Read(buf, 0, sizeof(int));
+                    int len = BitConverter.ToInt32(buf, 0);
+                    buf = new byte[len];
+                    stream.Read(buf, 0, len);
 
-                string id = Encoding.UTF8.GetString(buf);
-                string nick = id.Split(",".ToCharArray())[1];
-                id = id.Split(",".ToCharArray())[0];
+                    string id = Encoding.UTF8.GetString(buf);
+                    string nick = id.Split(",".ToCharArray())[1];
+                    id = id.Split(",".ToCharArray())[0];
 
-                User user = new User(new Info(id, nick), stream, this);
-                users_mutex.WaitOne();
-                users.Add(user);
-                users_mutex.ReleaseMutex();
-                RefreshEvent();
+                    User user = new User(new Info(id, nick), stream, this);
+                    users_mutex.WaitOne();
+                    users.Add(user);
+                    users_mutex.ReleaseMutex();
+                    Re_flag = true;
+                }
+                catch(Exception ex)
+                {
+                    Console.WriteLine("클라이언트 연결 실패");
+                }
             }
         }
 
@@ -73,30 +120,35 @@ namespace Serv
         {
             while (th_flag)
             {
-                byte[] buf = BitConverter.GetBytes(0);
-                Lobbystream.Read(buf, 0, sizeof(int));
-                int len = BitConverter.ToInt32(buf, 0);
-                if ( len > 0)
+                try
                 {
-                    users_mutex.WaitOne();
-                    //List<User> copy = new List<User>(users);
-                    users_mutex.ReleaseMutex();
-                    Console.WriteLine($"들어온 길이:{len}");
-                    buf = new byte[len];
-                    Lobbystream.Read(buf, 0, len);
-                    string id = Encoding.UTF8.GetString(buf).Split(",".ToCharArray())[0];
-                    STATE state = (STATE) int.Parse(Encoding.UTF8.GetString(buf).Split(",".ToCharArray())[1]);
+                    byte[] buf = BitConverter.GetBytes(0);
+                    Lobbystream.Read(buf, 0, sizeof(int));
+                    int len = BitConverter.ToInt32(buf, 0);
+                    if (len > 0)
+                    {
+                        Console.WriteLine($"로비로부터 받은 길이:{len}");
+                        buf = new byte[len];
+                        Lobbystream.Read(buf, 0, len);
+                        string id = Encoding.UTF8.GetString(buf).Split(",".ToCharArray())[0];
+                        STATE state = (STATE)int.Parse(Encoding.UTF8.GetString(buf).Split(",".ToCharArray())[1]);
+                        Console.WriteLine($"로비로부터 받은 값:{id},{state}");
+                        User temp = users.Find(x => x.info.id == id);
+                        users_mutex.WaitOne();
+                        temp.info.state = state;
+                        users_mutex.ReleaseMutex();
 
-                    User temp = users.Find(x => x.info.id == id);
-                    users_mutex.WaitOne();
-                    temp.info.state = state;
-                    users_mutex.ReleaseMutex();
-
-                    RefreshEvent();
+                        Re_flag = true;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"들어온 신호:{BitConverter.ToInt32(buf, 0)}");
+                        th_flag = false;
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    Console.WriteLine($"들어온 신호:{BitConverter.ToInt32(buf, 0)}");
+                    Console.WriteLine("로그인 서버 접속 끊김");
                     th_flag = false;
                 }
             }
@@ -136,34 +188,48 @@ namespace Serv
                 int sign = 0;
                 while (sign != -1)
                 {
-                    byte[] buf = new byte[sizeof(int)];
-                    buf = BitConverter.GetBytes(-1);
-                    stream.Read(buf, 0, sizeof(int));
-                    sign = BitConverter.ToInt32(buf, 0);
-
-                    switch (sign)
+                    try
                     {
-                        case (int)SIGN.ADD_FRIEND:     //친구 신청 보냄
-                            Console.WriteLine("친구 신청");
-                            Push(sign);
-                            break;
-                        case (int) SIGN.INVITE:     //방 초대 보냄
-                            Console.WriteLine("초대");
-                            Push(sign);
-                            break;
-                        case (int) SIGN.ACCEPT_FRIEND:     //친구 신청 수락
-                            Console.WriteLine("친구 신청 수락");
-                            Accept();
-                            break;
-                        case -1:
-                            Console.WriteLine("클라이언트 종료");
-                            Serv.RefreshEvent -= new Refreshing(Refresh);
-                            Serv.users_mutex.WaitOne();
-                            Serv.users.Remove(this);
-                            Serv.users_mutex.ReleaseMutex();
-                            return;
+                        byte[] buf = new byte[sizeof(int)];
+                        buf = BitConverter.GetBytes(-1);
+                        stream.Read(buf, 0, sizeof(int));
+                        sign = BitConverter.ToInt32(buf, 0);
+
+                        switch (sign)
+                        {
+                            case (int)SIGN.ADD_FRIEND:     //친구 신청 보냄
+                                Console.WriteLine("친구 신청");
+                                Push(sign);
+                                break;
+                            case (int)SIGN.INVITE:     //방 초대 보냄
+                                Console.WriteLine("초대");
+                                Push(sign);
+                                break;
+                            case (int)SIGN.ACCEPT_FRIEND:     //친구 신청 수락
+                                Console.WriteLine("친구 신청 수락");
+                                Accept();
+                                break;
+                            case -1:
+                                Console.WriteLine("클라이언트 종료");
+                                Disconnect();
+                                return;
+                        }
+                    }
+                    catch (IOException ex)
+                    {
+                        Console.WriteLine($"{info.id} 연결 끊김 {ex.Message}");
+                        Disconnect();
+                        return;
                     }
                 }
+            }
+
+            void Disconnect()
+            {
+                Serv.RefreshEvent -= new Refreshing(Refresh);
+                Serv.users_mutex.WaitOne();
+                Serv.users.Remove(this);
+                Serv.users_mutex.ReleaseMutex();
             }
 
             void Push(int sign)
@@ -348,37 +414,6 @@ namespace Serv
         public string GetString()
         {
             return $"{id},{nick_name},{state},{location}";
-        }
-    }
-
-    static public partial class CONST
-    {
-        public const string IP_USERSERV = "10.10.20.48";
-        public const int PORT_USERSERV = 10005;
-        public const string IP_DB = "10.10.20.213";
-        public const int PORT_DB = 10000;
-        public const string IP_LOBBY = "10.10.20.47";
-        public const int PORT_LOBBY = 7000;
-        public const string DB_CONN = "Server=\"10.10.20.213\";Port=3306;Database=VoiceChat;Uid=root;Pwd=1234";
-        public const string GET_FIRENDS = "SELECT friendlist.friend_id, users.nickname, users.state, users.location " +
-            "FROM friendlist inner join users on users.id = friendlist.friend_id where friendlist.id = '";
-        public const string GET_ACCEPT1 = "insert into friendlist values('";
-        public const string GET_ACCEPT2 = "', now())";
-        //public const string UPDATE_STATE = "update users set state = 1 where id = '";
-
-        public enum STATE
-        {
-            OFFLINE,
-            ONLINE,
-            BUSY,
-            HIDE
-        }
-
-        public enum SIGN
-        {
-            ADD_FRIEND,
-            INVITE,
-            ACCEPT_FRIEND
         }
     }
 }
