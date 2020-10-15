@@ -17,7 +17,7 @@ namespace Server
 {
     static public partial class CONST
     {
-        public const string IP_USERSERV = "10.10.20.48";    //유저 서버 IP
+        //public static string IP_USERSERV = GetLocalIPAddress();    //유저 서버 IP
         public const int PORT_USERSERV = 10005;             //유저 서버 포트
         //public const string IP_DB = "10.10.20.213";         //DP 서버 IP
         //public const int PORT_DB = 10000;                   //DP 서버 포트
@@ -28,15 +28,30 @@ namespace Server
         //친구 리스트 쿼리문자열
         public const string GET_FIRENDS = "SELECT friendlist.friend_id, users.nickname, users.state, users.location " +
             "FROM friendlist inner join users on users.id = friendlist.friend_id where friendlist.id = '";
-        //친구 추가 문자열1
+        //친구 추가 문자열
         public const string GET_ACCEPT1 = "insert into friendlist values('";
-        //친구 추가 문자열2
         public const string GET_ACCEPT2 = "', now())";
+        //친구 삭제 문자열
+        public const string DEL_FRIEND1 = "delete from friendlist where id ='";
+        public const string DEL_FRIEND2 = "' and friend_id = '";
+
         //동기화 인터벌 시간
         public const int REFRESH_INTERVAL = 5000;
         
         //현재 시간 반환
         public static string NOW() => DateTime.Now.ToString("HH:mm:ss");
+        //IP 구하기
+        public static string GetLocalIPAddress()
+        {
+            string localIP;
+            using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
+            {
+                socket.Connect("8.8.8.8", 65530);
+                IPEndPoint endPoint = socket.LocalEndPoint as IPEndPoint;
+                localIP = endPoint.Address.ToString();
+            }
+            return localIP;
+        }
 
         public enum STATE
         {
@@ -51,7 +66,8 @@ namespace Server
             REFRESH,
             ADD_FRIEND,
             INVITE,
-            ACCEPT_FRIEND
+            ACCEPT_FRIEND,
+            DEL_FRIEND
         }
     }
 
@@ -125,9 +141,6 @@ namespace Server
         readonly NetworkStream Lobbystream;
         bool th_flag = true;
         bool Re_flag = false;
-        IPEndPoint userPoint = new IPEndPoint(IPAddress.Parse(IP_USERSERV), 0);
-        IPEndPoint ServPoint = new IPEndPoint(IPAddress.Parse(IP_USERSERV), PORT_USERSERV);
-        IPEndPoint lobbyPoint = new IPEndPoint(IPAddress.Parse(IP_LOBBY), PORT_LOBBY);
         public Mutex users_mutex = new Mutex(false, "usermutex");
         public List<User> users = new List<User>();
         public delegate void Refreshing();
@@ -138,8 +151,8 @@ namespace Server
         {
             try
             { 
-            Lobbyclient = new TcpClient(userPoint);
-            Lobbyclient.Connect(lobbyPoint);                //로비서버 연결
+            Lobbyclient = new TcpClient(new IPEndPoint(IPAddress.Any, 0));
+            Lobbyclient.Connect(new IPEndPoint(IPAddress.Parse(IP_LOBBY), PORT_LOBBY));                //로비서버 연결
             Lobbystream = Lobbyclient.GetStream();
 
             Console.WriteLine($"[{NOW()}]로비서버 연결");
@@ -199,7 +212,7 @@ namespace Server
 
         void Connect_Cla()          //클라이언트 연결
         {
-            TcpListener listen = new TcpListener(ServPoint);
+            TcpListener listen = new TcpListener(new IPEndPoint(IPAddress.Any, PORT_USERSERV));
             listen.Start();
 
             while (th_flag)
@@ -215,7 +228,7 @@ namespace Server
                     id = id.Split(",".ToCharArray())[0];
 
                     User user = new User(new Info(id, nick), stream, this);
-                    Re_flag = true;
+                    //Re_flag = true;
                 }
                 catch (Exception ex)
                 {
@@ -294,6 +307,12 @@ namespace Server
                             case (int)SIGN.ACCEPT_FRIEND:     //친구 신청 수락
                                 Console.WriteLine($"[{NOW()}]친구 신청 수락({info.id})");
                                 Accept();
+                                Refresh();
+                                break;
+                            case (int)SIGN.DEL_FRIEND:     //친구 삭제
+                                Console.WriteLine($"[{NOW()}]친구 삭제({info.id})");
+                                DelFriend();
+                                Refresh();
                                 break;
                             case -1:
                                 Console.WriteLine($"[{NOW()}]클라이언트 종료({info.id})");
@@ -303,7 +322,7 @@ namespace Server
                     }
                     catch (IOException ex)
                     {
-                        Console.WriteLine($"[{NOW()}]{info.id} : {ex.Message}");
+                        Console.WriteLine($"[{NOW()}]{info.id} 유저 연결 끊김");
                         Disconnect();
                         return;
                     }
@@ -390,6 +409,40 @@ namespace Server
                 }
             }
 
+            void DelFriend()
+            {
+                string id = NETSTREAM.ReadStr(stream);
+
+                using (MySqlConnection conn = new MySqlConnection(DB_CONN))
+                {
+                    try
+                    {
+                        conn.Open();
+                        if (conn.Ping() == false)
+                        {
+                            Console.WriteLine($"[{NOW()}]DB 연결 에러");
+                            return;
+                        }
+                        string query = Del_FirendQuery(id, info.id);
+                        MySqlCommand comm = new MySqlCommand(query, conn);
+                        int result1 = comm.ExecuteNonQuery();
+
+                        query = Del_FirendQuery(info.id, id);
+                        comm = new MySqlCommand(query, conn);
+                        int result2 = comm.ExecuteNonQuery();
+
+                        if (result1 != 1 || result2 != 1)
+                        {
+                            Console.WriteLine($"[{NOW()}]친구 삭제 에러");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[{NOW()}]친구 삭제 에러 {ex.Message}");
+                    }
+                }
+            }
+
             void list_th()    //유저 리스트, 친구 리스트 전송 쓰레드
             {
                 Serv.users_mutex.WaitOne();
@@ -448,6 +501,11 @@ namespace Server
             string Get_AcceptQuery(string id, string friendid)
             {
                 return $"{GET_ACCEPT1}{info.id}','{friendid}{GET_ACCEPT2}";
+            }
+
+            string Del_FirendQuery(string id, string friendid)
+            {
+                return $"{DEL_FRIEND1}{info.id}{DEL_FRIEND2}{friendid}'";
             }
         }
     }
