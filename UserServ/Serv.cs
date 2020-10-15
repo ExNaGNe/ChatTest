@@ -7,24 +7,31 @@ using System.Net;
 using System.Net.Sockets;
 using static Serv.CONST;
 using System.Threading;
-using MySql.Data.MySqlClient;
 using System.IO;
+using System.Timers;
+using MySql.Data.MySqlClient;
 
 namespace Serv
 {
     static public partial class CONST
     {
-        public const string IP_USERSERV = "10.10.20.48";
-        public const int PORT_USERSERV = 10005;
-        public const string IP_DB = "10.10.20.213";
-        public const int PORT_DB = 10000;
-        public const string IP_LOBBY = "10.10.20.47";
-        public const int PORT_LOBBY = 7000;
+        public const string IP_USERSERV = "10.10.20.48";    //유저 서버 IP
+        public const int PORT_USERSERV = 10005;             //유저 서버 포트
+        //public const string IP_DB = "10.10.20.213";         //DP 서버 IP
+        //public const int PORT_DB = 10000;                   //DP 서버 포트
+        public const string IP_LOBBY = "10.10.20.47";       //로비 서버 IP
+        public const int PORT_LOBBY = 7000;                 //로비 서버 포트
+        //DP 연결 문자열
         public const string DB_CONN = "Server=\"10.10.20.213\";Port=3306;Database=VoiceChat;Uid=root;Pwd=1234";
+        //친구 리스트 쿼리문자열
         public const string GET_FIRENDS = "SELECT friendlist.friend_id, users.nickname, users.state, users.location " +
             "FROM friendlist inner join users on users.id = friendlist.friend_id where friendlist.id = '";
+        //친구 추가 문자열1
         public const string GET_ACCEPT1 = "insert into friendlist values('";
+        //친구 추가 문자열2
         public const string GET_ACCEPT2 = "', now())";
+        //동기화 인터벌 시간
+        public const int REFRESH_INTERVAL = 5000;
         //public const string UPDATE_STATE = "update users set state = 1 where id = '";
 
         public enum STATE
@@ -62,13 +69,14 @@ namespace Serv
         public List<User> users = new List<User>();
         public delegate void Refreshing();
         public event Refreshing RefreshEvent;
+        System.Timers.Timer timer;
 
         public UserServ()
         {
             try
             { 
             Lobbyclient = new TcpClient(userPoint);
-            Lobbyclient.Connect(lobbyPoint);
+            Lobbyclient.Connect(lobbyPoint);                //로비서버 연결
             Lobbystream = Lobbyclient.GetStream();
 
             Console.WriteLine("로비서버 연결");
@@ -83,37 +91,12 @@ namespace Serv
 
         public void Run()
         {
-            TcpListener listen = new TcpListener(ServPoint);
-            listen.Start();
+            timer = new System.Timers.Timer(REFRESH_INTERVAL);  //동기화 타이머(5초)
+            timer.Elapsed += TimerHandler;
+            timer.AutoReset = true;
 
-            while (th_flag)
-            {
-                try
-                {
-                    TcpClient client = listen.AcceptTcpClient();
-                    Console.WriteLine("클라이언트 연결됨");
-                    NetworkStream stream = client.GetStream();
-                    byte[] buf = new byte[sizeof(int)];
-                    stream.Read(buf, 0, sizeof(int));
-                    int len = BitConverter.ToInt32(buf, 0);
-                    buf = new byte[len];
-                    stream.Read(buf, 0, len);
-
-                    string id = Encoding.UTF8.GetString(buf);
-                    string nick = id.Split(",".ToCharArray())[1];
-                    id = id.Split(",".ToCharArray())[0];
-
-                    User user = new User(new Info(id, nick), stream, this);
-                    users_mutex.WaitOne();
-                    users.Add(user);
-                    users_mutex.ReleaseMutex();
-                    Re_flag = true;
-                }
-                catch(Exception ex)
-                {
-                    Console.WriteLine("클라이언트 연결 실패");
-                }
-            }
+            timer.Enabled = true;
+            Connect_Cla();          //클라이언트 연결
         }
 
         void Lobby_th()
@@ -153,6 +136,50 @@ namespace Serv
                 }
             }
             Lobbystream.Close();
+        }
+
+        void Connect_Cla()  //클라이언트 연결
+        {
+            TcpListener listen = new TcpListener(ServPoint);
+            listen.Start();
+
+            while (th_flag)
+            {
+                try
+                {
+                    TcpClient client = listen.AcceptTcpClient();
+                    Console.WriteLine("클라이언트 연결됨");
+                    NetworkStream stream = client.GetStream();
+                    byte[] buf = new byte[sizeof(int)];
+                    stream.Read(buf, 0, sizeof(int));
+                    int len = BitConverter.ToInt32(buf, 0);
+                    buf = new byte[len];
+                    stream.Read(buf, 0, len);
+
+                    string id = Encoding.UTF8.GetString(buf);
+                    string nick = id.Split(",".ToCharArray())[1];
+                    id = id.Split(",".ToCharArray())[0];
+
+                    User user = new User(new Info(id, nick), stream, this);
+                    users_mutex.WaitOne();
+                    users.Add(user);
+                    users_mutex.ReleaseMutex();
+                    Re_flag = true;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("클라이언트 연결 실패");
+                }
+            }
+        }
+
+        private void TimerHandler(object sender, ElapsedEventArgs e)
+        {
+            var copy = RefreshEvent;
+            if (Re_flag && copy != null)
+            {
+                copy();
+            }
         }
 
         public class User
