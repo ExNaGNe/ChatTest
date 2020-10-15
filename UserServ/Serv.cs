@@ -312,7 +312,7 @@ namespace Server
                                 Refresh();
                                 break;
                             case -1:
-                                Console.WriteLine($"[{NOW()}]클라이언트 종료({info.id})");
+                                Console.WriteLine($"[{NOW()}]{info.id} 클라이언트 종료");
                                 Disconnect();
                                 return;
                         }
