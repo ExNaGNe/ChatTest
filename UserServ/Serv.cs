@@ -63,6 +63,17 @@ namespace Serv
             stream.Write(Encoding.UTF8.GetBytes(str), 0, Encoding.UTF8.GetBytes(str).Length);
         }
 
+        static public void Write(NetworkStream stream, List<string> str)
+        {
+            stream.Write(BitConverter.GetBytes(str.Count), 0, sizeof(int));
+
+            foreach(string temp in str)
+            {
+                stream.Write(BitConverter.GetBytes(temp.Length), 0, sizeof(int));
+                stream.Write(Encoding.UTF8.GetBytes(temp), 0, Encoding.UTF8.GetBytes(temp).Length);
+            }
+        }
+
         static public int ReadInt(NetworkStream stream)
         {
             var buf = BitConverter.GetBytes(-1);
@@ -248,7 +259,6 @@ namespace Serv
                     try
                     {
                         sign = NETSTREAM.ReadInt(stream);
-
                         switch (sign)
                         {
                             case (int)SIGN.ADD_FRIEND:     //친구 신청 보냄
@@ -292,12 +302,7 @@ namespace Serv
                 string id = string.Empty;
                 string num = string.Empty;
                 string title = string.Empty;
-                var buf = new byte[sizeof(int)];
-                stream.Read(buf, 0, sizeof(int));       //문자열 길이 읽음
-                int len = BitConverter.ToInt32(buf, 0);
-                buf = new byte[len];
-                stream.Read(buf, 0, len);               //문자열 읽음
-                string origin = Encoding.UTF8.GetString(buf);
+                string origin = NETSTREAM.ReadStr(stream);
                 if (sign == (int)SIGN.INVITE)
                 { 
                     id = origin.Split(",".ToCharArray())[0];
@@ -314,14 +319,11 @@ namespace Serv
                 {
                     User temp = copy.Find(x => x.info.id == id);
                     MyMutex.WaitOne();
-                    buf = BitConverter.GetBytes(sign);
-                    temp.stream.Write(buf, 0, sizeof(int));         //사인 전송
+                    NETSTREAM.Write(stream, sign);              //sign 전송
                     if(sign == (int) SIGN.INVITE)
-                        buf = Encoding.UTF8.GetBytes(info.GetString()+$",{num},{title}");
+                        NETSTREAM.Write(stream, info.GetString()+$",{num},{title}");
                     else
-                        buf = Encoding.UTF8.GetBytes(info.GetString());
-                    temp.stream.Write(BitConverter.GetBytes(buf.Length), 0, sizeof(int));  //문자열 길이 전송
-                    temp.stream.Write(buf, 0, buf.Length);                 //문자열 전송
+                        NETSTREAM.Write(stream, info.GetString());
                     MyMutex.ReleaseMutex();
                 }
                 catch (ArgumentNullException ex)
@@ -333,12 +335,7 @@ namespace Serv
             void Accept()
             {
                 string id = string.Empty;
-                var buf = new byte[sizeof(int)];
-                stream.Read(buf, 0, sizeof(int));       //문자열 길이 읽음
-                int len = BitConverter.ToInt32(buf, 0);
-                buf = new byte[len];
-                stream.Read(buf, 0, len);               //문자열 읽음
-                string origin = Encoding.UTF8.GetString(buf);
+                string origin = NETSTREAM.ReadStr(stream);
                 id = origin.Split(",".ToCharArray())[0];
 
                 using (MySqlConnection conn = new MySqlConnection(DB_CONN))
@@ -386,10 +383,7 @@ namespace Serv
                 {
                     if (temp.info.state == STATE.HIDE)
                         continue;
-                    buf = Encoding.UTF8.GetBytes(temp.info.GetString());
-                    var len = BitConverter.GetBytes(buf.Length);   
-                    stream.Write(len, 0, sizeof(int));      //보낼 문자열 길이
-                    stream.Write(buf, 0, buf.Length);       //유저 정보 문자열
+                    NETSTREAM.Write(stream, temp.info.GetString());
                 }
                 //친구 리스트 전송
                 List<string> rows = new List<string>();
@@ -408,7 +402,6 @@ namespace Serv
 
                         using (MySqlDataReader reader = comm.ExecuteReader())
                         {
-                            //int field = reader.FieldCount;
                             while (reader.Read())
                             {
                                 string row = string.Empty;
@@ -424,13 +417,7 @@ namespace Serv
                             }
                         }
 
-                        stream.Write(BitConverter.GetBytes(rows.Count), 0, sizeof(int));    //보낼 행 개수 전송
-                        foreach (string temp in rows)
-                        {
-                            stream.Write(BitConverter.GetBytes(temp.Length), 0, sizeof(int));   //보낼 행 길이 전송
-                            buf = Encoding.UTF8.GetBytes(temp);
-                            stream.Write(buf, 0, buf.Length);           //행 전송
-                        }
+                        NETSTREAM.Write(stream, rows);
                     }
                     catch (Exception ex)
                     {
