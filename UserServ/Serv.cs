@@ -17,10 +17,7 @@ namespace Server
 {
     static public partial class CONST
     {
-        //public static string IP_USERSERV = GetLocalIPAddress();    //유저 서버 IP
         public const int PORT_USERSERV = 10005;             //유저 서버 포트
-        //public const string IP_DB = "10.10.20.213";         //DP 서버 IP
-        //public const int PORT_DB = 10000;                   //DP 서버 포트
         public const string IP_LOBBY = "10.10.20.47";       //로비 서버 IP
         public const int PORT_LOBBY = 7000;                 //로비 서버 포트
         //DP 연결 문자열
@@ -201,7 +198,7 @@ namespace Server
                         th_flag = false;
                     }
                 }
-                catch (Exception ex)
+                catch
                 {
                     Console.WriteLine($"[{NOW()}]로그인 서버 접속 끊김");
                     th_flag = false;
@@ -230,7 +227,7 @@ namespace Server
                     User user = new User(new Info(id, nick), stream, this);
                     //Re_flag = true;
                 }
-                catch (Exception ex)
+                catch 
                 {
                     Console.WriteLine($"[{NOW()}]클라이언트 연결 실패");
                 }
@@ -320,7 +317,7 @@ namespace Server
                                 return;
                         }
                     }
-                    catch (IOException ex)
+                    catch
                     {
                         Console.WriteLine($"[{NOW()}]{info.id} 유저 연결 끊김");
                         Disconnect();
@@ -477,7 +474,6 @@ namespace Server
                                 rows.Add(GetRow(reader));  //보낼 행 리스트에 추가
                             }
                         }
-                        //Console.WriteLine($"동기화 친구 리스트:{rows.Count}");
                         NETSTREAM.Write(stream, rows);
                     }
                     catch (Exception ex)
