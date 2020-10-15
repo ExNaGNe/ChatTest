@@ -421,17 +421,7 @@ namespace Server
                         {
                             while (reader.Read())
                             {
-                                string row = string.Empty;
-                                
-                                foreach (DbDataRecord temp in reader)
-                                {
-                                    if (temp.ToString() == STATE.HIDE.ToString())
-                                        row += $"{STATE.OFFLINE},";
-                                    else
-                                        row += $"{temp},";
-                                }
-                                row.Remove(row.Length - 1);
-                                rows.Add(row);  //보낼 행 리스트에 추가
+                                rows.Add(GetRow(reader));  //보낼 행 리스트에 추가
                             }
                         }
                         //Console.WriteLine($"동기화 친구 리스트:{rows.Count}");
@@ -443,6 +433,11 @@ namespace Server
                     }
                 }
                 MyMutex.ReleaseMutex();
+            }
+
+            string GetRow(MySqlDataReader reader)
+            {
+                return $"{reader[0]},{reader[1]},{reader[2]},{reader[3]}";
             }
 
             string Get_FriendQuery(string id)
