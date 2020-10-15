@@ -505,7 +505,7 @@ namespace Server
 
             string Del_FirendQuery(string id, string friendid)
             {
-                return $"{DEL_FRIEND1}{info.id}{DEL_FRIEND2}{friendid}'";
+                return $"{DEL_FRIEND1}{id}{DEL_FRIEND2}{friendid}'";
             }
         }
     }
