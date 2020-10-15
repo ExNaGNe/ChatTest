@@ -77,7 +77,7 @@ namespace Server
         static public void Write(NetworkStream stream, IEnumerable <string> str)
         {
             stream.Write(BitConverter.GetBytes(str.Count()), 0, sizeof(int));
-
+            
             foreach (string temp in str)
             {
                 stream.Write(BitConverter.GetBytes(temp.Length), 0, sizeof(int));
@@ -388,6 +388,7 @@ namespace Server
                 Serv.users_mutex.ReleaseMutex();
                 //유저 리스트 전송
                 MyMutex.WaitOne();
+                Console.WriteLine($"동기화 유저 리스트:{copy.Count()}");
                 NETSTREAM.Write(stream, copy);
                 //친구 리스트 전송
                 List<string> rows = new List<string>();
@@ -420,6 +421,7 @@ namespace Server
                                 rows.Add(row);  //보낼 행 리스트에 추가
                             }
                         }
+                        Console.WriteLine($"동기화 친구 리스트:{rows.Count}");
                         NETSTREAM.Write(stream, rows);
                     }
                     catch (Exception ex)
