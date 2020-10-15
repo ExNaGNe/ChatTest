@@ -294,20 +294,20 @@ namespace Server
                         switch (sign)
                         {
                             case (int)SIGN.ADD_FRIEND:     //친구 신청 보냄
-                                Console.WriteLine($"[{NOW()}]친구 신청({info.id})");
+                                Console.WriteLine($"[{NOW()}]{info.id} 친구 신청");
                                 Push(sign);
                                 break;
                             case (int)SIGN.INVITE:     //방 초대 보냄
-                                Console.WriteLine($"[{NOW()}]초대({info.id})");
+                                Console.WriteLine($"[{NOW()}]{info.id} 초대");
                                 Push(sign);
                                 break;
                             case (int)SIGN.ACCEPT_FRIEND:     //친구 신청 수락
-                                Console.WriteLine($"[{NOW()}]친구 신청 수락({info.id})");
+                                Console.WriteLine($"[{NOW()}]{info.id} 친구 신청 수락");
                                 Accept();
                                 Refresh();
                                 break;
                             case (int)SIGN.DEL_FRIEND:     //친구 삭제
-                                Console.WriteLine($"[{NOW()}]친구 삭제({info.id})");
+                                Console.WriteLine($"[{NOW()}]{info.id} 친구 삭제");
                                 DelFriend();
                                 Refresh();
                                 break;
