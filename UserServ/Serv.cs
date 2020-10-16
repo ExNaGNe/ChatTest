@@ -39,7 +39,7 @@ namespace Server
         public const int REFRESH_INTERVAL = 5000;
         
         //현재 시간 반환
-        public static string NOW() => DateTime.Now.ToString("HH:mm:ss");
+        public static string NOW() => DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss");
         //IP 구하기
         public static string GetLocalIPAddress()
         {
@@ -189,24 +189,33 @@ namespace Server
                         string id = read.Split(",".ToCharArray())[0];
                         STATE state = (STATE)int.Parse(read.Split(",".ToCharArray())[1]);
                         Console.WriteLine($"[{NOW()}]로비로부터 받은 값:{id},{state}");
-                        User temp = users.Find(x => x.info.id == id);
-                        users_mutex.WaitOne();
-                        temp.info.state = state;
-                        users_mutex.ReleaseMutex();
 
-                        Re_flag = true;
+                        try
+                        {
+                            User temp = users.Find(x => x.info.id == id);
+                            users_mutex.WaitOne();
+                            temp.info.state = state;
+                            users_mutex.ReleaseMutex();
+
+                            Re_flag = true;
+                        }
+                        catch (NullReferenceException ex)
+                        {
+                            Console.WriteLine($"[{NOW()}]새 클라이언트 접속");
+                            continue;
+                        }
                     }
                     else
                     {
                         Console.WriteLine($"[{NOW()}]로비 쓰레드 종료");
                         th_flag = false;
-                        if(listen != null)
+                        if (listen != null)
                             listen.Stop();
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    Console.WriteLine($"[{NOW()}]로비 서버 접속 끊김");
+                    Console.WriteLine($"[{NOW()}]로비 서버 접속 끊김 {ex.Message}");
                     th_flag = false;
                     if (listen != null)
                         listen.Stop();
