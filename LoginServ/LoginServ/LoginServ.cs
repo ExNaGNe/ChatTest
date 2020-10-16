@@ -26,7 +26,7 @@ namespace LoginServ
         public const string SIGNIN_QUERY1 = "insert into users(id, pass, nickname, signin) values('";
         public const string SIGNIN_QUERY2 = "',now())";
         //현재 시간 반환
-        public static string NOW() => DateTime.Now.ToString("HH:mm:ss");
+        public static string NOW() => DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss");
 
         public enum SIGN
         {
