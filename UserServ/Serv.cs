@@ -23,7 +23,7 @@ namespace Server
         //DP 연결 문자열
         public const string DB_CONN = "Server=10.10.20.213;Port=3306;Database=VoiceChat;Uid=root;Pwd=1234;Charset=utf8";
         //친구 리스트 쿼리문자열
-        public const string GET_FIRENDS = "SELECT friendlist.friend_id, users.nickname, users.state, users.location " +
+        public const string GET_FIRENDS = "SELECT friendlist.friend_id, users.nickname, users.state, users.location, date_format(users.lastout, '%Y-%m-%d %H:%i') " +
             "FROM friendlist inner join users on users.id = friendlist.friend_id where friendlist.id = '";
         public const string GET_FIRENDS2 = "' and friendlist.friend_id = '";
         //친구 추가 문자열
@@ -33,7 +33,8 @@ namespace Server
         //친구 삭제 문자열
         public const string DEL_FRIEND1 = "delete from friendlist where id ='";
         public const string DEL_FRIEND2 = "' and friend_id = '";
-
+        //접속 종료 시간 문자열
+        public const string UP_OUTDATE = "update users set state = 0,lastout = now() where id = '";
         //동기화 인터벌 시간
         public const int REFRESH_INTERVAL = 5000;
         
@@ -137,6 +138,7 @@ namespace Server
         }
 
         TcpClient Lobbyclient;
+        TcpListener listen;
         readonly NetworkStream Lobbystream;
         bool th_flag = true;
         bool Re_flag = false;
@@ -198,12 +200,16 @@ namespace Server
                     {
                         Console.WriteLine($"[{NOW()}]로비 쓰레드 종료");
                         th_flag = false;
+                        if(listen != null)
+                            listen.Stop();
                     }
                 }
                 catch
                 {
-                    Console.WriteLine($"[{NOW()}]로그인 서버 접속 끊김");
+                    Console.WriteLine($"[{NOW()}]로비 서버 접속 끊김");
                     th_flag = false;
+                    if (listen != null)
+                        listen.Stop();
                 }
             }
             Lobbystream.Close();
@@ -211,7 +217,7 @@ namespace Server
 
         void Connect_Cla()          //클라이언트 연결
         {
-            TcpListener listen = new TcpListener(new IPEndPoint(IPAddress.Any, PORT_USERSERV));
+            listen = new TcpListener(new IPEndPoint(IPAddress.Any, PORT_USERSERV));
             listen.Start();
 
             while (th_flag)
@@ -288,7 +294,7 @@ namespace Server
             void User_th()
             {
                 int sign = 0;
-                while (sign != -1)
+                while (sign != -1 || Serv.th_flag == true)
                 {
                     try
                     {
@@ -330,12 +336,6 @@ namespace Server
 
             void Disconnect()
             {
-                Serv.RefreshEvent -= Refresh;
-                Serv.users_mutex.WaitOne();
-                Serv.users.Remove(this);
-                Serv.users_mutex.ReleaseMutex();
-                stream.Close();
-
                 //using (MySqlConnection conn = new MySqlConnection(DB_CONN))
                 //{
                 //    try
@@ -343,25 +343,28 @@ namespace Server
                 //        conn.Open();
                 //        if (conn.Ping() == false)
                 //        {
-                //            Console.WriteLine($"[{NOW()}]친구 신청 DB 연결 에러");
+                //            Console.WriteLine($"[{NOW()}]유저 종료 DB 연결 에러");
                 //            return;
                 //        }
-                //        string query = Get_SelFriendQuery(id);
+                //        string query = Update_OutQuery();
                 //        MySqlCommand comm = new MySqlCommand(query, conn);
 
-                //        using (MySqlDataReader reader = comm.ExecuteReader())
-                //        {
-                //            if (reader.HasRows)
-                //            {
-                //                return;
-                //            }
-                //        }
+                //        int result = comm.ExecuteNonQuery();
+                //        if (result < 0)
+                //            Console.WriteLine($"[{NOW()}]유저 종료 DB 실행 에러");
+                //        else
+                //            Console.WriteLine($"[{NOW()}]유저 종료 DB 업데이트");
                 //    }
                 //    catch (Exception ex)
                 //    {
-                //        Console.WriteLine($"[{NOW()}]친구 신청 DB 에러 {ex.Message}");
+                //        Console.WriteLine($"[{NOW()}]유저 종료 DB 에러 {ex.Message}");
                 //    }
                 //}
+                Serv.RefreshEvent -= Refresh;
+                Serv.users_mutex.WaitOne();
+                Serv.users.Remove(this);
+                Serv.users_mutex.ReleaseMutex();
+                stream.Close();
             }
 
             void Push(int sign)
@@ -555,7 +558,38 @@ namespace Server
 
             string GetRow(MySqlDataReader reader)
             {
-                return $"{reader[0]},{reader[1]},{reader[2]},{reader[3]}";
+                string row = string.Empty;
+
+                row += $"{reader[0]},{reader[1]}";
+
+                switch(int.Parse(reader[2].ToString()))
+                {
+                    case 0:
+                        DateTime last = Convert.ToDateTime(reader[4]);
+                        if (DateTime.Now.Subtract(last).TotalDays >= 1)
+                        {
+                            row += $",{((int)DateTime.Now.Subtract(last).TotalDays).ToString()}일 전 접속";
+                        }
+                        else if (DateTime.Now.Subtract(last).TotalHours >= 1)
+                        {
+                            row += $",{((int)DateTime.Now.Subtract(last).TotalHours).ToString()}시간 전 접속";
+                        }
+                        else if (DateTime.Now.Subtract(last).TotalMinutes >= 1)
+                        {
+                            row += $",{((int)DateTime.Now.Subtract(last).TotalMinutes).ToString()}분 전 접속";
+                        }
+                        else
+                        {
+                            row += $",{((int)DateTime.Now.Subtract(last).TotalSeconds).ToString()}초 전 접속";
+                        }
+                        break;
+                    default:
+                        row += $",{reader[2]}";
+                        break;
+                }
+
+                row += $",{reader[3]}";
+                return row;
             }
 
             string Get_FriendQuery()
@@ -577,6 +611,11 @@ namespace Server
             {
                 return $"{DEL_FRIEND1}{id}{DEL_FRIEND2}{friendid}'";
             }
+
+            string Update_OutQuery()
+            {
+                return $"{UP_OUTDATE}{info.id}'";
+            }
         }
     }
 
@@ -596,7 +635,7 @@ namespace Server
         }
         public string GetString()
         {
-            return $"{id},{nick_name},{state},{location}";
+            return $"{id},{nick_name},{(int)state},{location}";
         }
     }
 }
