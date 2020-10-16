@@ -151,16 +151,16 @@ namespace Server
         public UserServ()
         {
             try
-            { 
-            Lobbyclient = new TcpClient(new IPEndPoint(IPAddress.Any, 0));
-            Lobbyclient.Connect(new IPEndPoint(IPAddress.Parse(IP_LOBBY), PORT_LOBBY));                //로비서버 연결
-            Lobbystream = Lobbyclient.GetStream();
+            {
+                Lobbyclient = new TcpClient(new IPEndPoint(IPAddress.Any, 0));
+                Lobbyclient.Connect(new IPEndPoint(IPAddress.Parse(IP_LOBBY), PORT_LOBBY));                //로비서버 연결
+                Lobbystream = Lobbyclient.GetStream();
 
-            Console.WriteLine($"[{NOW()}]로비서버 연결");
-            Thread lobby_th = new Thread(new ThreadStart(Lobby_th));
-            lobby_th.Start();
+                Console.WriteLine($"[{NOW()}]로비서버 연결");
+                Thread lobby_th = new Thread(new ThreadStart(Lobby_th));
+                lobby_th.Start();
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Console.WriteLine($"[{NOW()}]로비서버 연결 실패 {ex.Message}");
             }

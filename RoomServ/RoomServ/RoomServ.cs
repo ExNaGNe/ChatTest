@@ -129,13 +129,14 @@ namespace Serv
 
                     try
                     {
+                        //방 있을때
                         Room room = Rooms.Find(x => x.RoomNum.ToString() == RoomNum);
                         Room.User user = new Room.User(id, stream);
                         room.AddUser(user);
                     }
                     catch (NullReferenceException)
                     {
-
+                        //방 없을떄
                     }
                 }
                 catch
