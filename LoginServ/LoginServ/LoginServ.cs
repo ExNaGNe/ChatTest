@@ -20,6 +20,8 @@ namespace LoginServ
         //로그인 쿼리 문자열
         public const string LOGIN_QUERY1 = "select id, nickname, state, location from users where id = '";
         public const string LOGIN_QUERY2 = "' and pass = '";
+        //중복 확인 쿼리
+        public const string FIND_QUERY = "' or nick = '";
         //회원가입 쿼리 문자열
         public const string SIGNIN_QUERY1 = "insert into users(id, pass, nickname, signin) values('";
         public const string SIGNIN_QUERY2 = "',now())";
@@ -204,7 +206,7 @@ namespace LoginServ
                         Console.WriteLine($"[{NOW()}]DB 연결 에러");
                         return;
                     }
-                    string query = Get_LoginQuery(id, pass);
+                    string query = FindQuery(id, nick);
                     MySqlCommand comm = new MySqlCommand(query, conn);
 
                     using (MySqlDataReader reader = comm.ExecuteReader())
@@ -236,6 +238,11 @@ namespace LoginServ
         string Get_LoginQuery(string id, string pass)
         {
             return $"{LOGIN_QUERY1}{id}{LOGIN_QUERY2}{pass}'";
+        }
+
+        string FindQuery(string id, string nick)
+        {
+            return $"{LOGIN_QUERY1}{id}{FIND_QUERY}{nick}'";
         }
 
         string Get_SigninQuery(string id, string pass, string nick)

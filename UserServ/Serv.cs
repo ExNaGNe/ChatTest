@@ -25,10 +25,11 @@ namespace Server
         //친구 리스트 쿼리문자열
         public const string GET_FIRENDS = "SELECT friendlist.friend_id, users.nickname, users.state, users.location " +
             "FROM friendlist inner join users on users.id = friendlist.friend_id where friendlist.id = '";
-        public const string GET_FIRENDS2 = "' and id = '";
+        public const string GET_FIRENDS2 = "' and friendlist.friend_id = '";
         //친구 추가 문자열
-        public const string GET_ACCEPT1 = "insert into friendlist values('";
-        public const string GET_ACCEPT2 = "', now())";
+        public const string GET_ACCEPT1 = "insert into friendlist select '";
+        public const string GET_ACCEPT2 = "', now() from dual where not exists(select * from friendlist where id ='";
+        public const string GET_ACCEPT3 = "' and friend_id ='";
         //친구 삭제 문자열
         public const string DEL_FRIEND1 = "delete from friendlist where id ='";
         public const string DEL_FRIEND2 = "' and friend_id = '";
@@ -334,6 +335,33 @@ namespace Server
                 Serv.users.Remove(this);
                 Serv.users_mutex.ReleaseMutex();
                 stream.Close();
+
+                //using (MySqlConnection conn = new MySqlConnection(DB_CONN))
+                //{
+                //    try
+                //    {
+                //        conn.Open();
+                //        if (conn.Ping() == false)
+                //        {
+                //            Console.WriteLine($"[{NOW()}]친구 신청 DB 연결 에러");
+                //            return;
+                //        }
+                //        string query = Get_SelFriendQuery(id);
+                //        MySqlCommand comm = new MySqlCommand(query, conn);
+
+                //        using (MySqlDataReader reader = comm.ExecuteReader())
+                //        {
+                //            if (reader.HasRows)
+                //            {
+                //                return;
+                //            }
+                //        }
+                //    }
+                //    catch (Exception ex)
+                //    {
+                //        Console.WriteLine($"[{NOW()}]친구 신청 DB 에러 {ex.Message}");
+                //    }
+                //}
             }
 
             void Push(int sign)
@@ -358,7 +386,7 @@ namespace Server
                             conn.Open();
                             if (conn.Ping() == false)
                             {
-                                Console.WriteLine($"[{NOW()}]DB 연결 에러");
+                                Console.WriteLine($"[{NOW()}]친구 신청 DB 연결 에러");
                                 return;
                             }
                             string query = Get_SelFriendQuery(id);
@@ -475,46 +503,54 @@ namespace Server
 
             void list_th()    //유저 리스트, 친구 리스트 동기화 쓰레드
             {
-                Serv.users_mutex.WaitOne();
-                var copy = from user in Serv.users
-                           where user.info.state != STATE.HIDE
-                           select user.info.GetString();
-                Serv.users_mutex.ReleaseMutex();
-                //유저 리스트 전송
-                MyMutex.WaitOne();
-                NETSTREAM.Write(stream, (int) SIGN.REFRESH);
-                //Console.WriteLine($"동기화 유저 리스트:{copy.Count()}");
-                NETSTREAM.Write(stream, copy);
-                //친구 리스트 전송
-                List<string> rows = new List<string>();
-                using (MySqlConnection conn = new MySqlConnection(DB_CONN))
+                try
                 {
-                    try
+                    Serv.users_mutex.WaitOne();
+                    var copy = from user in Serv.users
+                               where user.info.state != STATE.HIDE
+                               select user.info.GetString();
+                    Serv.users_mutex.ReleaseMutex();
+                    //유저 리스트 전송
+                    MyMutex.WaitOne();
+                    NETSTREAM.Write(stream, (int)SIGN.REFRESH);
+                    //Console.WriteLine($"동기화 유저 리스트:{copy.Count()}");
+                    NETSTREAM.Write(stream, copy);
+                    //친구 리스트 전송
+                    List<string> rows = new List<string>();
+                    using (MySqlConnection conn = new MySqlConnection(DB_CONN))
                     {
-                        conn.Open();
-                        if (conn.Ping() == false)
+                        try
                         {
-                            Console.WriteLine($"[{NOW()}]DB 연결 에러");
-                            return;
-                        }
-                        string query = Get_FriendQuery();
-                        MySqlCommand comm = new MySqlCommand(query, conn);
-
-                        using (MySqlDataReader reader = comm.ExecuteReader())
-                        {
-                            while (reader.Read())
+                            conn.Open();
+                            if (conn.Ping() == false)
                             {
-                                rows.Add(GetRow(reader));  //보낼 행 리스트에 추가
+                                Console.WriteLine($"[{NOW()}]DB 연결 에러");
+                                return;
                             }
+                            string query = Get_FriendQuery();
+                            MySqlCommand comm = new MySqlCommand(query, conn);
+
+                            using (MySqlDataReader reader = comm.ExecuteReader())
+                            {
+                                while (reader.Read())
+                                {
+                                    rows.Add(GetRow(reader));  //보낼 행 리스트에 추가
+                                }
+                            }
+                            NETSTREAM.Write(stream, rows);
                         }
-                        NETSTREAM.Write(stream, rows);
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[{NOW()}]친구 리스트 전송 에러 {ex.Message}");
+                        }
                     }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"[{NOW()}]친구 리스트 전송 에러 {ex.Message}");
-                    }
+                    MyMutex.ReleaseMutex();
                 }
-                MyMutex.ReleaseMutex();
+                catch
+                {
+                    Console.WriteLine($"[{NOW()}]동기화 에러");
+                    MyMutex.Close();
+                }
             }
 
             string GetRow(MySqlDataReader reader)
@@ -534,7 +570,7 @@ namespace Server
 
             string Get_AcceptQuery(string id, string friendid)
             {
-                return $"{GET_ACCEPT1}{id}','{friendid}{GET_ACCEPT2}";
+                return $"{GET_ACCEPT1}{id}','{friendid}{GET_ACCEPT2}{id}{GET_ACCEPT3}{friendid}')";
             }
 
             string Del_FirendQuery(string id, string friendid)
