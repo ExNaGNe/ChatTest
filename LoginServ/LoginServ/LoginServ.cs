@@ -103,6 +103,7 @@ namespace LoginServ
         
         public void Run()
         {
+            Console.WriteLine($"[{NOW()}]로그인 서버 실행");
             TcpListener listen = new TcpListener(new IPEndPoint(IPAddress.Any, PORT_LOGINSERV));
             listen.Start();
 

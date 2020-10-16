@@ -25,6 +25,7 @@ namespace Server
         //친구 리스트 쿼리문자열
         public const string GET_FIRENDS = "SELECT friendlist.friend_id, users.nickname, users.state, users.location " +
             "FROM friendlist inner join users on users.id = friendlist.friend_id where friendlist.id = '";
+        public const string GET_FIRENDS2 = "' and id = '";
         //친구 추가 문자열
         public const string GET_ACCEPT1 = "insert into friendlist values('";
         public const string GET_ACCEPT2 = "', now())";
@@ -347,8 +348,36 @@ namespace Server
                     num = origin.Split(",".ToCharArray())[1];
                     title = origin.Split(",".ToCharArray())[2];
                 }
-                else
+                else if(sign== (int) SIGN.ADD_FRIEND)
+                {
                     id = origin;
+                    using (MySqlConnection conn = new MySqlConnection(DB_CONN))
+                    {
+                        try
+                        {
+                            conn.Open();
+                            if (conn.Ping() == false)
+                            {
+                                Console.WriteLine($"[{NOW()}]DB 연결 에러");
+                                return;
+                            }
+                            string query = Get_SelFriendQuery(id);
+                            MySqlCommand comm = new MySqlCommand(query, conn);
+
+                            using (MySqlDataReader reader = comm.ExecuteReader())
+                            {
+                                if(reader.HasRows)
+                                {
+                                    return;
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[{NOW()}]친구 신청 DB 에러 {ex.Message}");
+                        }
+                    }
+                }
                 Serv.users_mutex.WaitOne();
                 List<User> copy = new List<User>(Serv.users);
                 Serv.users_mutex.ReleaseMutex();
@@ -444,7 +473,7 @@ namespace Server
                 }
             }
 
-            void list_th()    //유저 리스트, 친구 리스트 전송 쓰레드
+            void list_th()    //유저 리스트, 친구 리스트 동기화 쓰레드
             {
                 Serv.users_mutex.WaitOne();
                 var copy = from user in Serv.users
@@ -468,7 +497,7 @@ namespace Server
                             Console.WriteLine($"[{NOW()}]DB 연결 에러");
                             return;
                         }
-                        string query = Get_FriendQuery(info.id);
+                        string query = Get_FriendQuery();
                         MySqlCommand comm = new MySqlCommand(query, conn);
 
                         using (MySqlDataReader reader = comm.ExecuteReader())
@@ -493,9 +522,14 @@ namespace Server
                 return $"{reader[0]},{reader[1]},{reader[2]},{reader[3]}";
             }
 
-            string Get_FriendQuery(string id)
+            string Get_FriendQuery()
             {
                 return $"{GET_FIRENDS}{info.id}'";
+            }
+
+            string Get_SelFriendQuery(string id)
+            {
+                return $"{GET_FIRENDS}{id}{GET_FIRENDS2}{info.id}'";
             }
 
             string Get_AcceptQuery(string id, string friendid)
