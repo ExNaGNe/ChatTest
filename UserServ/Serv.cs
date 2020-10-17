@@ -18,7 +18,7 @@ namespace Server
     static public partial class CONST
     {
         public const int PORT_USERSERV = 10005;             //유저 서버 포트
-        public const string IP_LOBBY = "10.10.20.47";       //로비 서버 IP
+        public const string IP_LOBBY = "10.10.20.48";       //로비 서버 IP
         public const int PORT_LOBBY = 7000;                 //로비 서버 포트
         //DP 연결 문자열
         public const string DB_CONN = "Server=10.10.20.213;Port=3306;Database=VoiceChat;Uid=root;Pwd=1234;Charset=utf8";
@@ -148,7 +148,7 @@ namespace Server
         public event Refreshing RefreshEvent;
         System.Timers.Timer timer;
 
-        public UserServ()
+        public UserServ()   //로비 서버와 연결(생성자)
         {
             try
             {
@@ -166,7 +166,7 @@ namespace Server
             }
         }
 
-        public void Run()
+        public void Run()   //타이머 세팅 후 클라이언트와 연결
         {
             timer = new System.Timers.Timer(REFRESH_INTERVAL);  //동기화 타이머(5초)
             timer.Elapsed += TimerHandler;
@@ -176,7 +176,7 @@ namespace Server
             Connect_Cla();          //클라이언트 연결
         }
 
-        void Lobby_th()             //로비 쓰레드
+        void Lobby_th()             //로비 서버 쓰레드
         {
             while (th_flag)
             {
@@ -252,7 +252,7 @@ namespace Server
             Console.WriteLine($"[{NOW()}]클라이언트 접속 대기 종료");
         }
 
-        //타이머 동작
+        //동기화 타이머 동작
         private void TimerHandler(object sender, ElapsedEventArgs e)
         {
             var copy = RefreshEvent;
@@ -293,14 +293,14 @@ namespace Server
                 Serv.RefreshEvent += Refresh;       //동기화 이벤트에 추가
             }
 
-            public void Refresh()
+            public void Refresh()   //동기화 이벤트 발생시 동기화 쓰레드 생성
             {
                 Console.WriteLine($"[{NOW()}]{info.id} 동기화 진입");
                 Thread thread = new Thread(list_th);
                 thread.Start();
             }
 
-            void User_th()
+            void User_th()  //유저 통신 쓰레드
             {
                 int sign = 0;
                 while (sign != -1 || Serv.th_flag == true)
@@ -343,7 +343,7 @@ namespace Server
                 }
             }
 
-            void Disconnect()
+            void Disconnect()   //유저 접속 종료 함수
             {
                 //using (MySqlConnection conn = new MySqlConnection(DB_CONN))
                 //{
@@ -376,7 +376,7 @@ namespace Server
                 stream.Close();
             }
 
-            void Push(int sign)
+            void Push(int sign)     //유저 신호 처리 함수
             {
                 string id = string.Empty;
                 string num = string.Empty;
@@ -439,7 +439,7 @@ namespace Server
                 }
             }
 
-            void Accept()
+            void Accept()       //유저 친구 수락 함수
             {
                 //string id = string.Empty;
                 string id = NETSTREAM.ReadStr(stream);
@@ -478,7 +478,7 @@ namespace Server
                 }
             }
 
-            void DelFriend()
+            void DelFriend()    //유저 친구 삭제 함수
             {
                 string id = NETSTREAM.ReadStr(stream);
 
