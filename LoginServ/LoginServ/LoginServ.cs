@@ -20,11 +20,13 @@ namespace LoginServ
         //로그인 쿼리 문자열
         public const string LOGIN_QUERY1 = "select id, nickname, state, location from users where id = '";
         public const string LOGIN_QUERY2 = "' and pass = '";
+        //중복 확인 쿼리
+        public const string FIND_QUERY = "' or nick = '";
         //회원가입 쿼리 문자열
         public const string SIGNIN_QUERY1 = "insert into users(id, pass, nickname, signin) values('";
         public const string SIGNIN_QUERY2 = "',now())";
         //현재 시간 반환
-        public static string NOW() => DateTime.Now.ToString("HH:mm:ss");
+        public static string NOW() => DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss");
 
         public enum SIGN
         {
@@ -103,12 +105,14 @@ namespace LoginServ
         
         public void Run()
         {
+            Console.WriteLine($"[{NOW()}]로그인 서버 실행");
             TcpListener listen = new TcpListener(new IPEndPoint(IPAddress.Any, PORT_LOGINSERV));
             listen.Start();
 
             while(ServOn)
             {
                 TcpClient client = listen.AcceptTcpClient();
+                Console.WriteLine($"[{NOW()}]클라이언트 접속");
                 NetworkStream stream = client.GetStream();
                 Thread thread = new Thread(() => Login_Thread(stream));
                 thread.Start();
@@ -120,10 +124,11 @@ namespace LoginServ
             string id = string.Empty;
             string pass = string.Empty;
             string nick = string.Empty;
+
             try
             {
                 int sign = NETSTREAM.ReadInt(stream);
-
+                Console.WriteLine($"[{NOW()}]클라이언트 신호: {sign}");
                 id = NETSTREAM.ReadStr(stream);
                 switch (sign)
                 {
@@ -144,10 +149,12 @@ namespace LoginServ
                         return;
                 }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
-                Console.WriteLine($"{NOW()} 클라이언트 접속 에러 {ex.Message}");
+                Console.WriteLine($"[{NOW()}] 클라이언트 접속 에러 {ex.Message}");
+                return;
             }
+
             stream.Close();
         }
 
@@ -173,6 +180,7 @@ namespace LoginServ
                             reader.Read();
                             NETSTREAM.Write(stream, 1);
                             NETSTREAM.Write(stream, GetLoignRow(reader));
+                            Console.WriteLine($"[{NOW()}]로그인 성공: {id}");
                         }
                         else
                             NETSTREAM.Write(stream, 0);
@@ -181,6 +189,7 @@ namespace LoginServ
                 catch (Exception ex)
                 {
                     Console.WriteLine($"[{NOW()}]로그인 에러: {ex.Message}");
+                    return;
                 }
             }
         }
@@ -197,20 +206,21 @@ namespace LoginServ
                         Console.WriteLine($"[{NOW()}]DB 연결 에러");
                         return;
                     }
-                    string query = Get_LoginQuery(id, pass);
+                    string query = FindQuery(id, nick);
                     MySqlCommand comm = new MySqlCommand(query, conn);
 
                     using (MySqlDataReader reader = comm.ExecuteReader())
                     {
-                        if (reader.HasRows)
+                        if (!reader.HasRows)
                         {
-                            //reader.Read();
+                            reader.Close();
                             query = Get_SigninQuery(id, pass, nick);
                             comm = new MySqlCommand(query, conn);
                             int result = comm.ExecuteNonQuery();
                             if(result > 0)
                             {
                                 NETSTREAM.Write(stream, 2);
+                                Console.WriteLine($"[{NOW()}]회원가입 성공: {id}");
                             }
                         }
                         else
@@ -220,6 +230,7 @@ namespace LoginServ
                 catch (Exception ex)
                 {
                     Console.WriteLine($"[{NOW()}]회원가입 에러: {ex.Message}");
+                    return;
                 }
             }
         }
@@ -227,6 +238,11 @@ namespace LoginServ
         string Get_LoginQuery(string id, string pass)
         {
             return $"{LOGIN_QUERY1}{id}{LOGIN_QUERY2}{pass}'";
+        }
+
+        string FindQuery(string id, string nick)
+        {
+            return $"{LOGIN_QUERY1}{id}{FIND_QUERY}{nick}'";
         }
 
         string Get_SigninQuery(string id, string pass, string nick)

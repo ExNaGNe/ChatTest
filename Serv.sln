@@ -7,8 +7,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UserServ", "UserServ\UserSe
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "test", "..\..\..\..\C#\test\test.csproj", "{43443346-585A-4D36-A755-DE9DF27B2995}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LoginServ", "LoginServ\LoginServ.csproj", "{6EB44C87-1676-4297-A051-E861E540F4F3}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -23,10 +21,6 @@ Global
 		{43443346-585A-4D36-A755-DE9DF27B2995}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{43443346-585A-4D36-A755-DE9DF27B2995}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{43443346-585A-4D36-A755-DE9DF27B2995}.Release|Any CPU.Build.0 = Release|Any CPU
-		{6EB44C87-1676-4297-A051-E861E540F4F3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{6EB44C87-1676-4297-A051-E861E540F4F3}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{6EB44C87-1676-4297-A051-E861E540F4F3}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{6EB44C87-1676-4297-A051-E861E540F4F3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
