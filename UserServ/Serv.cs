@@ -345,30 +345,6 @@ namespace Server
 
             void Disconnect()   //유저 접속 종료 함수
             {
-                //using (MySqlConnection conn = new MySqlConnection(DB_CONN))
-                //{
-                //    try
-                //    {
-                //        conn.Open();
-                //        if (conn.Ping() == false)
-                //        {
-                //            Console.WriteLine($"[{NOW()}]유저 종료 DB 연결 에러");
-                //            return;
-                //        }
-                //        string query = Update_OutQuery();
-                //        MySqlCommand comm = new MySqlCommand(query, conn);
-
-                //        int result = comm.ExecuteNonQuery();
-                //        if (result < 0)
-                //            Console.WriteLine($"[{NOW()}]유저 종료 DB 실행 에러");
-                //        else
-                //            Console.WriteLine($"[{NOW()}]유저 종료 DB 업데이트");
-                //    }
-                //    catch (Exception ex)
-                //    {
-                //        Console.WriteLine($"[{NOW()}]유저 종료 DB 에러 {ex.Message}");
-                //    }
-                //}
                 Serv.RefreshEvent -= Refresh;
                 Serv.users_mutex.WaitOne();
                 Serv.users.Remove(this);
