@@ -373,6 +373,7 @@ namespace Server
                 Serv.users_mutex.WaitOne();
                 Serv.users.Remove(this);
                 Serv.users_mutex.ReleaseMutex();
+                Serv.Re_flag = true;
                 stream.Close();
             }
 
