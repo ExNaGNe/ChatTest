@@ -187,7 +187,7 @@ namespace Server
                     {
                         Console.WriteLine($"[{NOW()}]로비로부터 받은 문자열:{read}");
                         string id = read.Split(",".ToCharArray())[0];
-                        STATE state = (STATE)int.Parse(read.Split(",".ToCharArray())[1]);
+                        STATE state = (STATE)int.Parse(read.Split(",".ToCharArray())[2]);
                         Console.WriteLine($"[{NOW()}]로비로부터 받은 값:{id},{state}");
 
                         try

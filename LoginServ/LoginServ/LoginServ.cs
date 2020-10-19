@@ -178,9 +178,14 @@ namespace LoginServ
                         if (reader.HasRows)
                         {
                             reader.Read();
-                            NETSTREAM.Write(stream, 1);
-                            NETSTREAM.Write(stream, GetLoignRow(reader));
-                            Console.WriteLine($"[{NOW()}]로그인 성공: {id}");
+                            if((int) reader[2] <= 0)
+                            {
+                                NETSTREAM.Write(stream, 1);
+                                NETSTREAM.Write(stream, GetLoignRow(reader));
+                                Console.WriteLine($"[{NOW()}]로그인 성공: {id}");
+                            }
+                            else
+                                NETSTREAM.Write(stream, 0);
                         }
                         else
                             NETSTREAM.Write(stream, 0);
