@@ -211,6 +211,7 @@ namespace Server
                         th_flag = false;
                         if (listen != null)
                             listen.Stop();
+                        return;
                     }
                 }
                 catch (Exception ex)
@@ -219,6 +220,7 @@ namespace Server
                     th_flag = false;
                     if (listen != null)
                         listen.Stop();
+                    return;
                 }
             }
             Lobbystream.Close();
@@ -364,6 +366,34 @@ namespace Server
                     id = origin.Split(",".ToCharArray())[0];
                     num = origin.Split(",".ToCharArray())[1];
                     title = origin.Split(",".ToCharArray())[2];
+
+                    using (MySqlConnection conn = new MySqlConnection(DB_CONN))
+                    {
+                        try
+                        {
+                            conn.Open();
+                            if (conn.Ping() == false)
+                            {
+                                Console.WriteLine($"[{NOW()}]친구 초대 DB 연결 에러");
+                                return;
+                            }
+                            string query = Get_SelFriendQuery(id);
+                            MySqlCommand comm = new MySqlCommand(query, conn);
+
+                            using (MySqlDataReader reader = comm.ExecuteReader())
+                            {
+                                reader.Read();
+                                if((string) reader[3] != "로비")
+                                {
+                                    return;
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[{NOW()}]친구 초대 DB 에러 {ex.Message}");
+                        }
+                    }
                 }
                 else if(sign== (int) SIGN.ADD_FRIEND)
                 {
