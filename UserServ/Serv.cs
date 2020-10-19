@@ -18,7 +18,7 @@ namespace Server
     static public partial class CONST
     {
         public const int PORT_USERSERV = 10005;             //유저 서버 포트
-        public const string IP_LOBBY = "10.10.20.48";       //로비 서버 IP
+        public const string IP_LOBBY = "10.10.20.47";       //로비 서버 IP
         public const int PORT_LOBBY = 7000;                 //로비 서버 포트
         //DP 연결 문자열
         public const string DB_CONN = "Server=10.10.20.213;Port=3306;Database=VoiceChat;Uid=root;Pwd=1234;Charset=utf8";
@@ -187,7 +187,7 @@ namespace Server
                     {
                         Console.WriteLine($"[{NOW()}]로비로부터 받은 문자열:{read}");
                         string id = read.Split(",".ToCharArray())[0];
-                        STATE state = (STATE)int.Parse(read.Split(",".ToCharArray())[1]);
+                        STATE state = (STATE)int.Parse(read.Split(",".ToCharArray())[2]);
                         Console.WriteLine($"[{NOW()}]로비로부터 받은 값:{id},{state}");
 
                         try
