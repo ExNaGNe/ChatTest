@@ -21,7 +21,7 @@ namespace LoginServ
         public const string LOGIN_QUERY1 = "select id, nickname, state, location from users where id = '";
         public const string LOGIN_QUERY2 = "' and pass = '";
         //중복 확인 쿼리
-        public const string FIND_QUERY = "' or nick = '";
+        public const string FIND_QUERY = "' or nickname = '";
         //회원가입 쿼리 문자열
         public const string SIGNIN_QUERY1 = "insert into users(id, pass, nickname, signin) values('";
         public const string SIGNIN_QUERY2 = "',now())";
@@ -225,7 +225,7 @@ namespace LoginServ
                             if(result > 0)
                             {
                                 NETSTREAM.Write(stream, 2);
-                                Console.WriteLine($"[{NOW()}]회원가입 성공: {id}");
+                                Console.WriteLine($"[{NOW()}]회원가입 성공: {id}{nick}");
                             }
                         }
                         else

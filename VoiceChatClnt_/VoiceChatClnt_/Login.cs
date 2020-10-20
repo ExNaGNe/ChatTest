@@ -96,7 +96,6 @@ namespace VoiceChatClnt_
         }
     }
 
-
     public class VoiceChatTCP
 	{		
 		string servIP = "10.10.20.213";
@@ -155,7 +154,7 @@ namespace VoiceChatClnt_
 
 		public void SendStr(string query)
 		{
-			byte[] data = Encoding.Default.GetBytes(query);			
+			byte[] data = Encoding.UTF8.GetBytes(query);			
 			stream.Write(BitConverter.GetBytes(data.Length), 0, sizeof(int));
 			stream.Write(data, 0, data.Length);
 			Console.WriteLine("전송끝");

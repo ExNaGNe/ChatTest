@@ -359,13 +359,13 @@ namespace Server
             {
                 string id = string.Empty;
                 string num = string.Empty;
-                string title = string.Empty;
+                //string title = string.Empty;
                 string origin = NETSTREAM.ReadStr(stream);
                 if (sign == (int)SIGN.INVITE)
                 { 
                     id = origin.Split(",".ToCharArray())[0];
                     num = origin.Split(",".ToCharArray())[1];
-                    title = origin.Split(",".ToCharArray())[2];
+                    //title = origin.Split(",".ToCharArray())[2];
 
                     using (MySqlConnection conn = new MySqlConnection(DB_CONN))
                     {
@@ -435,7 +435,7 @@ namespace Server
                     temp.MyMutex.WaitOne();
                     NETSTREAM.Write(temp.stream, sign);              //sign 전송
                     if(sign == (int) SIGN.INVITE)
-                        NETSTREAM.Write(temp.stream, info.GetString()+$",{num},{title}");
+                        NETSTREAM.Write(temp.stream, $"{info.nick_name}({info.id})"+$",{num}");
                     else
                         NETSTREAM.Write(temp.stream, info.GetString());
                     temp.MyMutex.ReleaseMutex();

@@ -45,7 +45,7 @@ namespace VoiceChatClnt_
         {
             ThreadsRun();
             InitListColumns(ref lv_lobbyRooms, "번호", "제목", "인원수");
-            InitListColumns(ref lv_lobbyUsers, "아이디", "닉네임", "상태", "위치");
+            InitListColumns(ref lv_lobbyUsers, "아이디", "닉네임", "상태");
             InitListColumns(ref lv_lobbyFriends, "아이디", "닉네임", "상태", "위치");
         }
 
@@ -99,6 +99,8 @@ namespace VoiceChatClnt_
 
 		private void lobbyServ()    // 로비 서버에서 신호를 받아 처리하는 스레드
 		{
+			lobbyCommunicator.SendStr(myUserData.ID);
+
             timer = new System.Timers.Timer(3000);  //동기화 타이머(3초)
             timer.Elapsed += lobbyUpdate;
             timer.AutoReset = true;
@@ -108,9 +110,10 @@ namespace VoiceChatClnt_
 				cb_stateList.SelectedIndex = 0;				
 			}));
 
+			/*
 			lobbyCommunicator.SendInt(4);
 			lobbyCommunicator.SendLinkedStr(myUserData.ID, myUserData.Nickname, "1");
-
+			*/
             lobbyUpdate(null, null);
             timer.Enabled = true;
             int sig = 0;
@@ -120,7 +123,7 @@ namespace VoiceChatClnt_
                 
 				lobbyMtx.WaitOne();
 				if (sig == 0)
-					return;
+					;
 				else if (sig == 1)
 					VisitRoom();
 				else if (sig == 2)
@@ -144,7 +147,7 @@ namespace VoiceChatClnt_
 		public void CreatedAndVisit(int recvRoomNum)
 		{
 			roomNum = recvRoomNum;
-			timer.Enabled = false;			
+			timer.Enabled = true;			
 			lobbyCommunicator.SendInt(3);
 			lobbyCommunicator.SendInt(roomNum);			
 		}
@@ -187,11 +190,12 @@ namespace VoiceChatClnt_
 		{
 			this.Invoke(new Action(delegate ()
 			{
+				Console.WriteLine(roomNum);
 				chatRoom = new ChatRoom(myUserData, usrCommunicator, lobbyCommunicator, roomNum);
-				chatRoom.FormClosed += (object sender, FormClosedEventArgs e) => { timer.Enabled = true; };
+				chatRoom.FormClosed += (object sender, FormClosedEventArgs e) => { timer.Enabled = true; chatRoom = null; };
 				chatRoom.Show();
-			}));
-            timer.Enabled = false;
+				
+			}));		
 		}
 
 		public void ReloadFromUsrServ()	// 유저 서버에서 업데이트 할 데이터를 받고 리스트 뷰에 적용
@@ -207,7 +211,10 @@ namespace VoiceChatClnt_
 				SetRowsAsListStr(ref lv_lobbyFriends, strFriends, 1);
 
 				InitListSize(ref lv_lobbyUsers);
-				InitListSize(ref lv_lobbyFriends);			
+				InitListSize(ref lv_lobbyFriends);
+
+				if (chatRoom != null)
+					chatRoom.UpdateFriendList(strFriends);
 				
 			}));
 		}		
@@ -261,16 +268,15 @@ namespace VoiceChatClnt_
 		public static void SetRowsAsListStr(ref ListView lv, List<string> args, int isState = 0)    // 리스트에 내용 추가
 		{
 			int stateNum = 0;
-
 			
-				foreach (string row in args)
-				{
-					string[] row_arr = row.Split(",".ToCharArray());
-					if (isState == 1 && int.TryParse(row_arr[2], out stateNum))
-						row_arr[2] = GetStateValue(stateNum);
-					ListViewItem item = new ListViewItem(row_arr);
-					lv.Items.Add(item);
-				}
+			foreach (string row in args)
+			{
+				string[] row_arr = row.Split(",".ToCharArray());
+				if (isState == 1 && int.TryParse(row_arr[2], out stateNum))
+					row_arr[2] = GetStateValue(stateNum);
+				ListViewItem item = new ListViewItem(row_arr);
+				lv.Items.Add(item);
+			}
 			
 		}
 

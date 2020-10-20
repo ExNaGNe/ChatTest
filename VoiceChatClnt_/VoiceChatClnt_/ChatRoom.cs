@@ -42,28 +42,28 @@ namespace VoiceChatClnt_
 			lobbyCommunicator = lobbyComm;
 			myUserData = myUsr;
 			voiceRoomPort = roomNum + 19000;
-			chatRoomPort = roomNum + 18000;	
+			chatRoomPort = roomNum + 18000;
+
+			Lobby.InitListColumns(ref lv_parti, "아이디", "닉네임", "상태");
+			Lobby.InitListColumns(ref lv_roomFriends, "아이디", "닉네임", "상태", "위치");
+			
+
+			vChater = new VoiceChater(voiceRoomPort);
+			vChater.InitSendSock();
+			vChater.InitRecvSock();			
+			vChater.PlayInput();
+
+			tChater = new TypeChater(myUserData.ID, chatRoomPort);			
+
+			connected = 1;
+			RecvAndReleaseThread = new Thread(new ThreadStart(RecvAndRelease));
+			RecvAndReleaseChatThread = new Thread(new ThreadStart(RecvAndReleaseChat));
+			RecvAndReleaseThread.Start();
+			RecvAndReleaseChatThread.Start();		
+
 		}
 
-        private void ChatRoom_Load(object sender, EventArgs e)
-        {
-            Lobby.InitListColumns(ref lv_parti, "아이디", "닉네임", "상태", "위치");
-
-            vChater = new VoiceChater(voiceRoomPort);
-            vChater.InitSendSock();
-            vChater.InitRecvSock();
-            vChater.PlayInput();
-
-            tChater = new TypeChater(myUserData.ID, chatRoomPort);
-
-            connected = 1;
-            RecvAndReleaseThread = new Thread(new ThreadStart(RecvAndRelease));
-            RecvAndReleaseChatThread = new Thread(new ThreadStart(RecvAndReleaseChat));
-            RecvAndReleaseThread.Start();
-            RecvAndReleaseChatThread.Start();
-        }
-
-        private void RecvAndReleaseChat()
+		private void RecvAndReleaseChat()
 		{
 			while (start == 0)
 			{
@@ -76,20 +76,14 @@ namespace VoiceChatClnt_
 			while (connected == 1)
 			{
 				string recvMsg = tChater.RecvMessage();
-
-                if (connected != 1)
-                    break;
-
+				
 				this.Invoke(new Action(() => {
 					rtb_chatWindow.AppendText(recvMsg + Environment.NewLine);					
 				}));
 			}
 		}
 
-		private void RecvAndRelease()
-		{			
-			Console.WriteLine("진입");
-			byte[] data = new byte[65535];
+		private void RecvAndRelease() {			
 
 			while (start == 0)
 			{
@@ -99,20 +93,15 @@ namespace VoiceChatClnt_
 
 			while (connected == 1)
 			{
-				//Console.WriteLine("반복문");
-				byte[] recvNumByte = new byte[4];
-				EndPoint remoteIp = new IPEndPoint(IPAddress.Any, 0);
-				int received = vChater.myRecvSock.ReceiveFrom(data, ref remoteIp);
+				int received = 0;
+				byte[] data = vChater.RecvBytesData(ref received);
 
-				//Console.WriteLine("test : " + data);
+				int simbolNum = vChater.GetSimbolNum(data);
+				byte[] soundData = vChater.GetSoundData(data);
 
-				Array.Copy(data, recvNumByte, recvNumByte.Length);
-				Array.Clear(data, 0, recvNumByte.Length);
+				vChater.AddSound(simbolNum, soundData, received);				
 
-				int recvNum = BitConverter.ToInt32(recvNumByte, 0);
-
-				vChater.AddSound(recvNum, data, received);
-                Array.Clear(data, 0, data.Length);
+				vChater.BufferClear();
 			}
 		}
 
@@ -127,10 +116,23 @@ namespace VoiceChatClnt_
 				Lobby.SetRowsAsListStr(ref lv_parti, partiList);
 			}));
 			int mySeqNum = GetMyNumFromListPartiData();
-            vChater.Init(mySeqNum, partiDatas);
-            vChater.PlayOutput();
+			
+			if(start != 0)
+				vChater.DisposeOutputs();
 
-            start = 1;
+			vChater.Init(mySeqNum, partiDatas);
+			vChater.PlayOutput();
+
+			start = 1;
+		}
+
+		public void UpdateFriendList(List<string> partiList)
+		{
+			this.Invoke(new Action(delegate ()
+			{				
+				lv_roomFriends.Items.Clear();
+				Lobby.SetRowsAsListStr(ref lv_roomFriends, partiList, 1);
+			}));
 		}
 
 		public int GetMyNumFromListPartiData()
@@ -164,13 +166,19 @@ namespace VoiceChatClnt_
 
 		private void bt_invite_Click(object sender, EventArgs e)
 		{
-
+            usrCommunicator.SendInt(2);
+            usrCommunicator.SendStr(myUserData.ID + ","/*+ 방 번호*/);
 		}
 
 		private void bt_exitRoom_Click(object sender, EventArgs e)
-		{
-            Close();
+		{			
+			Close();
 		}
+
+        private void ChatRoom_Load(object sender, EventArgs e)
+        {
+
+        }
 
         private void ChatRoom_FormClosed(object sender, FormClosedEventArgs e)
         {
@@ -178,7 +186,9 @@ namespace VoiceChatClnt_
             tChater.SendMessage("퇴장했습니다.");
 
             vChater.StopInput();
-            RecvAndReleaseThread.Join();
+            //RecvAndReleaseThread.Join();
+            RecvAndReleaseThread.Abort();
+            RecvAndReleaseChatThread.Abort();
 
             lobbyCommunicator.SendInt(5);
 
@@ -190,8 +200,8 @@ namespace VoiceChatClnt_
             tChater.CloseSock();
 
             partiDatas = null;
-            RecvAndReleaseThread.Abort();
-            RecvAndReleaseChatThread.Abort();
+
+            vChater.DisposeOutputs();
         }
     }
 }
@@ -222,7 +232,7 @@ public class VoiceChater
 	public VoiceChater(int _roomPort)
 	{		
 		roomPort = _roomPort;		
-		InitWaveIn();		
+		InitWaveIn();
 	}
 
 	public void Init(int num, List<PartiData> _partiDatas)
@@ -247,17 +257,17 @@ public class VoiceChater
 	{
 		myRecvSock = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
 		IPEndPoint localIP = new IPEndPoint(IPAddress.Any, roomPort);
-        myRecvSock.Bind(localIP);
-        myRecvSock.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership, new MulticastOption(multicastIP, IPAddress.Any));
+		myRecvSock.Bind(localIP);		
+		myRecvSock.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership, new MulticastOption(multicastIP, IPAddress.Any));
 	}
 
 	public void CloseSock()
 	{		
 		myRecvSock.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.DropMembership, new MulticastOption(multicastIP, IPAddress.Any));
-		mySendSock.Close();
-		mySendSock.Dispose();
 		myRecvSock.Close();
 		myRecvSock.Dispose();
+		mySendSock.Close();
+		mySendSock.Dispose();
 	}
 
 	public void setOutList(List<PartiData> _partiDatas)
@@ -266,9 +276,11 @@ public class VoiceChater
 
 		foreach(PartiData data in _partiDatas)
 		{
-			outputWaves.Add(new WaveOutputer(data.num));
-		}		
-	}
+			outputWaves.Add(new WaveOutputer(data.num));			
+		}				
+
+		
+	}	
 
 	public void PlayInput()
 	{
@@ -288,31 +300,59 @@ public class VoiceChater
 		}
 	}
 
-	public void AddSound(int num, byte[] data, int received)
+	public int GetSimbolNum(byte[] data)
 	{
-        if (num == myNum)
-        {
-            return;
-        }
+		byte[] recvNumByte = new byte[4];
+		Array.Copy(data, recvNumByte, recvNumByte.Length);
+		int simbolNum = BitConverter.ToInt32(recvNumByte, 0);
 
-        try
-        {
-            WaveOutputer outputer = outputWaves.Find(x => CheckIsNumOfOuter(num, x));
-            outputer.AddSoundData(data, received);
-        }
-        catch
-        {
-            Console.WriteLine("AddSound 에러");
-        }
-        //Console.WriteLine(outputWaves.Count);
-        //foreach (WaveOutputer outputer in outputWaves)
-        //{
-        //    if (CheckIsNumOfOuter(num, outputer) && !CheckIsNumOfOuter(myNum, outputer))
-        //    {
-        //        outputer.AddSoundData(data, received);
-        //    }
-        //}
-    }
+		return simbolNum;
+	}
+
+	public byte[] GetSoundData(byte[] data)
+	{
+		byte[] temp = new byte[data.Length];
+		Array.Copy(data, temp, temp.Length);
+		Array.Clear(temp, 0, sizeof(int));
+
+		return temp;
+	}
+
+	public byte[] RecvBytesData(ref int received)
+	{
+		byte[] data = new byte[65535];
+		EndPoint remoteIp = new IPEndPoint(IPAddress.Any, 0);
+		received = myRecvSock.ReceiveFrom(data, ref remoteIp);
+
+		return data;
+	}
+
+	public void AddSound(int simbolNum, byte[] data, int received)
+	{
+		foreach(WaveOutputer outputer in outputWaves)
+		{
+			if(CheckIsNumOfOuter(simbolNum, outputer) && !CheckIsNumOfOuter(myNum, outputer))
+			{
+				outputer.AddSoundData(data, received);
+			}
+		}			
+	}
+
+	public void BufferClear()
+	{
+		foreach(WaveOutputer outputer in outputWaves)
+		{
+			outputer.BufferClear();
+		}
+	}
+
+	public void DisposeOutputs()
+	{
+		foreach (WaveOutputer outputer in outputWaves)
+		{
+			outputer.DisposeOutput();
+		}
+	}
 
 	public bool CheckIsNumOfOuter(int num, WaveOutputer waveOuter)
 	{
@@ -356,14 +396,14 @@ public class WaveOutputer
 	public WaveOutputer(int _num)
 	{		
 		Num = _num;
-		InitWaveOut();
+		InitWaveOut();		
 	}
 
 	public void InitWaveOut()
 	{
 		Output = new WaveOut();
-		BufferStream = new BufferedWaveProvider(new WaveFormat(8000, 16, 1));
-		BufferStream.BufferLength = 107374182;
+		BufferStream = new BufferedWaveProvider(new WaveFormat(8000, 16, 1));		
+		BufferStream.BufferLength = 20480000;
 		Output.Init(BufferStream);
 	}
 
@@ -371,6 +411,18 @@ public class WaveOutputer
 	{
 		BufferStream.AddSamples(data, 0, len);		
 	}	   	 
+
+	public void DisposeOutput()
+	{
+		BufferStream.ClearBuffer();
+		Output.Dispose();
+	}
+
+	public void BufferClear()
+	{
+		if (BufferStream.BufferedBytes >= 10240000)
+			BufferStream.ClearBuffer();
+	}
 }
 
 
@@ -416,7 +468,6 @@ public class TypeChater
 		string sendStr = String.Format("{0} : {1}", myName, message);
 		byte[] sendData = Encoding.UTF8.GetBytes(sendStr);
 		mySendSock.Send(sendData, sendData.Length, groupEndPoint);
-
 	}
 
 	public string RecvMessage()

@@ -22,6 +22,7 @@ namespace VoiceChatClnt_
 		private void bt_sendPass_Click(object sender, EventArgs e)
 		{		
 			communicator.SendStr(tb_pass.Text);
+			Close();
 		}
 	}
 }
