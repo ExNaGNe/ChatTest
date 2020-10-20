@@ -91,8 +91,6 @@ namespace VoiceChatClnt_
 				else if (sig == 1)
 					AddFriend();		
 				else if (sig == 2)
-					;
-				else if (sig == 3)
 					InviteAccepted();
 			}
 		}
@@ -250,10 +248,17 @@ namespace VoiceChatClnt_
 
 		public void InviteAccepted()
 		{
+            string origin = usrCommunicator.RecvString();
+            string nick = origin.Split(",".ToCharArray())[0];
+            string num = origin.Split(",".ToCharArray())[1];
+            if(MessageBox.Show(this, "친구 초대", $"{nick}님이 {num}번 방으로 초대하셨습니다.", MessageBoxButtons.YesNo) == DialogResult.Yes)
+            {
+                lobbyCommunicator.SendInt(3);
+                lobbyCommunicator.SendInt(int.Parse(num));
+            }
+        }
 
-		}
-
-		public static void InitListColumns(ref ListView lv, params string[] args) // 리스트 뷰 컬럼 추가
+        public static void InitListColumns(ref ListView lv, params string[] args) // 리스트 뷰 컬럼 추가
 		{
 			foreach (string str in args)
 				lv.Columns.Add(str);			

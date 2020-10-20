@@ -29,7 +29,9 @@ namespace VoiceChatClnt_
 		int voiceRoomPort;
 		int chatRoomPort;
 		int connected = 0;
-		int start = 0;		
+		int start = 0;
+
+        int roomNum;
 
 		Thread RecvAndReleaseThread;
 		Thread RecvAndReleaseChatThread;
@@ -43,6 +45,7 @@ namespace VoiceChatClnt_
 			myUserData = myUsr;
 			voiceRoomPort = roomNum + 19000;
 			chatRoomPort = roomNum + 18000;
+            this.roomNum = roomNum;
 
 			Lobby.InitListColumns(ref lv_parti, "아이디", "닉네임", "상태");
 			Lobby.InitListColumns(ref lv_roomFriends, "아이디", "닉네임", "상태", "위치");
@@ -167,7 +170,7 @@ namespace VoiceChatClnt_
 		private void bt_invite_Click(object sender, EventArgs e)
 		{
             usrCommunicator.SendInt(2);
-            usrCommunicator.SendStr(myUserData.ID + ","/*+ 방 번호*/);
+            usrCommunicator.SendStr(myUserData.ID + ","+ roomNum.ToString());
 		}
 
 		private void bt_exitRoom_Click(object sender, EventArgs e)

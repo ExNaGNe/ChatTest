@@ -435,7 +435,7 @@ namespace Server
                     temp.MyMutex.WaitOne();
                     NETSTREAM.Write(temp.stream, sign);              //sign 전송
                     if(sign == (int) SIGN.INVITE)
-                        NETSTREAM.Write(temp.stream, $"{info.nick_name}({info.id})"+$",{num}");
+                        NETSTREAM.Write(temp.stream, $"{info.nick_name}({info.id}),{num}");
                     else
                         NETSTREAM.Write(temp.stream, info.GetString());
                     temp.MyMutex.ReleaseMutex();
