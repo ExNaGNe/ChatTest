@@ -31,12 +31,12 @@ namespace VoiceChatClnt_
 		int connected = 0;
 		int start = 0;
 
-        int roomNum;
+		int roomNum;
 
 		Thread RecvAndReleaseThread;
 		Thread RecvAndReleaseChatThread;
 
-		public ChatRoom(User myUsr, VoiceChatTCP usrComm, VoiceChatTCP lobbyComm, int roomNum)
+		public ChatRoom(User myUsr, VoiceChatTCP usrComm, VoiceChatTCP lobbyComm, int _roomNum, string roomName)
 		{
 			InitializeComponent();
 
@@ -45,11 +45,13 @@ namespace VoiceChatClnt_
 			myUserData = myUsr;
 			voiceRoomPort = roomNum + 19000;
 			chatRoomPort = roomNum + 18000;
-            this.roomNum = roomNum;
+			lb_roomName.Text = roomName;
+			roomNum = _roomNum;
 
 			Lobby.InitListColumns(ref lv_parti, "아이디", "닉네임", "상태");
 			Lobby.InitListColumns(ref lv_roomFriends, "아이디", "닉네임", "상태", "위치");
-			
+
+			Console.WriteLine("생성된 방번호 : {0}", roomNum);
 
 			vChater = new VoiceChater(voiceRoomPort);
 			vChater.InitSendSock();
@@ -68,11 +70,13 @@ namespace VoiceChatClnt_
 
 		private void RecvAndReleaseChat()
 		{
+			
 			while (start == 0)
 			{
 				Console.WriteLine(start);
 				Thread.Sleep(1);
 			}
+			
 
 			tChater.SendMessage("입장했습니다.");
 
@@ -86,13 +90,14 @@ namespace VoiceChatClnt_
 			}
 		}
 
-		private void RecvAndRelease() {			
-
+		private void RecvAndRelease() {
+			
 			while (start == 0)
 			{
 				Console.WriteLine(start);
 				Thread.Sleep(1);
 			}
+			
 
 			while (connected == 1)
 			{
@@ -169,42 +174,38 @@ namespace VoiceChatClnt_
 
 		private void bt_invite_Click(object sender, EventArgs e)
 		{
-            usrCommunicator.SendInt(2);
-            usrCommunicator.SendStr(myUserData.ID + ","+ roomNum.ToString());
+			usrCommunicator.SendInt(2);			
+			usrCommunicator.SendLinkedStr(myUserData.ID, roomNum.ToString());
 		}
 
 		private void bt_exitRoom_Click(object sender, EventArgs e)
-		{			
+		{
+			connected = 0;
+			tChater.SendMessage("퇴장했습니다.");
+
+			vChater.StopInput();
+			//RecvAndReleaseThread.Join();
+			RecvAndReleaseThread.Abort();
+			RecvAndReleaseChatThread.Abort();
+
+			lobbyCommunicator.SendInt(5);
+
+			usrCommunicator = null;
+			lobbyCommunicator = null;
+			myUserData = null;
+
+			vChater.CloseSock();
+			tChater.CloseSock();
+			
+			partiDatas = null;
+
+			vChater.DisposeOutputs();
 			Close();
 		}
 
         private void ChatRoom_Load(object sender, EventArgs e)
         {
 
-        }
-
-        private void ChatRoom_FormClosed(object sender, FormClosedEventArgs e)
-        {
-            connected = 0;
-            tChater.SendMessage("퇴장했습니다.");
-
-            vChater.StopInput();
-            //RecvAndReleaseThread.Join();
-            RecvAndReleaseThread.Abort();
-            RecvAndReleaseChatThread.Abort();
-
-            lobbyCommunicator.SendInt(5);
-
-            usrCommunicator = null;
-            lobbyCommunicator = null;
-            myUserData = null;
-
-            vChater.CloseSock();
-            tChater.CloseSock();
-
-            partiDatas = null;
-
-            vChater.DisposeOutputs();
         }
     }
 }
@@ -280,9 +281,7 @@ public class VoiceChater
 		foreach(PartiData data in _partiDatas)
 		{
 			outputWaves.Add(new WaveOutputer(data.num));			
-		}				
-
-		
+		}						
 	}	
 
 	public void PlayInput()
@@ -419,6 +418,8 @@ public class WaveOutputer
 	{
 		BufferStream.ClearBuffer();
 		Output.Dispose();
+		System.GC.Collect();
+		System.GC.WaitForPendingFinalizers();
 	}
 
 	public void BufferClear()

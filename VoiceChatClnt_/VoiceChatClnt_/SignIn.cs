@@ -15,7 +15,7 @@ namespace VoiceChatClnt_
 {
 	public partial class SignIn : Form
 	{
-        string[] Not_Allow = new string[] {", ","@","$","!","#","%","^","&","*","(",")","-","+","=" };
+		string[] Not_Allow = new string[] { ", ", "@", "$", "!", "#", "%", "^", "&", "*", "(", ")", "-", "+", "=" };
 		VoiceChatTCP communicator = null;
 
 		public SignIn()
@@ -37,32 +37,32 @@ namespace VoiceChatClnt_
 			string pw = tb_signPw.Text;
 			string pw2 = tb_signPw2.Text;
 
-            if (!pw.Equals(pw2))
-            {
-                MessageBox.Show("비밀번호 확인이 다릅니다.");
-                return;
-            }
-            if (Not_Allow.Any(id.Contains) || Not_Allow.Any(name.Contains))
-            { 
-                MessageBox.Show("특수문자는 포함할 수 없습니다.");
-                return;
-            }
-            if(id.Length < 6)
-            {
-                MessageBox.Show("ID는 6자 이상이여야 합니다.");
-                return;
-            }
-            if (pw.Length < 8)
-            {
-                MessageBox.Show("비밀번호는 8자 이상이여야 합니다.");
-                return;
-            }
-            if (name.Length < 2)
-            {
-                MessageBox.Show("닉네임은 2자 이상이여야 합니다.");
-                return;
-            }
-            
+			if (!pw.Equals(pw2))
+			{
+				MessageBox.Show("비밀번호 확인이 다릅니다.");
+				return;
+			}
+			if (Not_Allow.Any(id.Contains) || Not_Allow.Any(name.Contains))
+			{
+				MessageBox.Show("특수문자는 포함할 수 없습니다.");
+				return;
+			}
+			if (id.Length < 6)
+			{
+				MessageBox.Show("ID는 6자 이상이여야 합니다.");
+				return;
+			}
+			if (pw.Length < 8)
+			{
+				MessageBox.Show("비밀번호는 8자 이상이여야 합니다.");
+				return;
+			}
+			if (name.Length < 2)
+			{
+				MessageBox.Show("닉네임은 2자 이상이여야 합니다.");
+				return;
+			}
+
 			pw = Login.Encode(pw);
 			communicator.SendInt(2);
 			communicator.SendLinkedStr(id, pw, name);

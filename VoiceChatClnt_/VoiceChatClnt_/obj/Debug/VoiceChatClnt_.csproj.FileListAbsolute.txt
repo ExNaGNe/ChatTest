@@ -44,21 +44,3 @@ C:\Users\iotpc\Documents\카카오톡 받은 파일\VoiceChatClnt_\VoiceChatClnt
 C:\Users\iotpc\Documents\카카오톡 받은 파일\VoiceChatClnt_\VoiceChatClnt_\bin\Debug\NAudio.dll
 C:\Users\iotpc\Documents\카카오톡 받은 파일\VoiceChatClnt_\VoiceChatClnt_\bin\Debug\NAudio.xml
 C:\Users\iotpc\Documents\카카오톡 받은 파일\VoiceChatClnt_\VoiceChatClnt_\obj\Debug\VoiceChatClnt_.csproj.CopyComplete
-D:\download\VoiceChatClnt_\VoiceChatClnt_\bin\Debug\VoiceChatClnt_.exe.config
-D:\download\VoiceChatClnt_\VoiceChatClnt_\bin\Debug\VoiceChatClnt_.exe
-D:\download\VoiceChatClnt_\VoiceChatClnt_\bin\Debug\VoiceChatClnt_.pdb
-D:\download\VoiceChatClnt_\VoiceChatClnt_\bin\Debug\NAudio.dll
-D:\download\VoiceChatClnt_\VoiceChatClnt_\bin\Debug\NAudio.xml
-D:\download\VoiceChatClnt_\VoiceChatClnt_\obj\Debug\VoiceChatClnt_.csprojAssemblyReference.cache
-D:\download\VoiceChatClnt_\VoiceChatClnt_\obj\Debug\VoiceChatClnt_.ChatRoom.resources
-D:\download\VoiceChatClnt_\VoiceChatClnt_\obj\Debug\VoiceChatClnt_.CreateRoom.resources
-D:\download\VoiceChatClnt_\VoiceChatClnt_\obj\Debug\VoiceChatClnt_.InputPass.resources
-D:\download\VoiceChatClnt_\VoiceChatClnt_\obj\Debug\VoiceChatClnt_.Lobby.resources
-D:\download\VoiceChatClnt_\VoiceChatClnt_\obj\Debug\VoiceChatClnt_.Login.resources
-D:\download\VoiceChatClnt_\VoiceChatClnt_\obj\Debug\VoiceChatClnt_.Properties.Resources.resources
-D:\download\VoiceChatClnt_\VoiceChatClnt_\obj\Debug\VoiceChatClnt_.SignIn.resources
-D:\download\VoiceChatClnt_\VoiceChatClnt_\obj\Debug\VoiceChatClnt_.csproj.GenerateResource.cache
-D:\download\VoiceChatClnt_\VoiceChatClnt_\obj\Debug\VoiceChatClnt_.csproj.CoreCompileInputs.cache
-D:\download\VoiceChatClnt_\VoiceChatClnt_\obj\Debug\VoiceChatClnt_.csproj.CopyComplete
-D:\download\VoiceChatClnt_\VoiceChatClnt_\obj\Debug\VoiceChatClnt_.exe
-D:\download\VoiceChatClnt_\VoiceChatClnt_\obj\Debug\VoiceChatClnt_.pdb
