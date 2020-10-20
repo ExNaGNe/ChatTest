@@ -12,6 +12,11 @@ using System.Timers;
 
 namespace VoiceChatClnt_
 {
+    //public static class CONST
+    //{
+    //    public static string NOW() => return Da
+    //}
+
 	public partial class Lobby : Form
 	{
 		VoiceChatTCP usrCommunicator = null;
@@ -21,13 +26,12 @@ namespace VoiceChatClnt_
 
 		static Thread userServThread;
 		static Thread lobbyServThread;
-		
+		static Thread chatServThread;
 
 		ChatRoom chatRoom;
 
 		User myUserData;
 		int roomNum = -1;
-		string roomName = "";
 
         System.Timers.Timer timer;
 
@@ -70,8 +74,7 @@ namespace VoiceChatClnt_
 			lobbyCommunicator.SendInt(3);
 
 			string strRoomNum = GetElementBySelectedRow(ref lv_lobbyRooms, 0);
-			roomName = GetElementBySelectedRow(ref lv_lobbyRooms, 1);
-			Console.WriteLine("들어갈 때 보낸 방 번호 : {0} ",strRoomNum);
+			Console.WriteLine(strRoomNum);
 			roomNum = int.Parse(strRoomNum);
 			lobbyCommunicator.SendInt(roomNum);			
 		}		
@@ -119,34 +122,22 @@ namespace VoiceChatClnt_
             int sig = 0;
 			while (true)
 			{
-				try { 
 				sig = lobbyCommunicator.RecvInt();
-					Console.WriteLine("받은 직후 신호 : {0}", sig);
-                
+                Console.WriteLine($"신호:{sig}");
 				lobbyMtx.WaitOne();
-				if (sig == -1)
-					MessageBox.Show("잘못된 비밀번호");
+				if (sig == 0)
+					;
 				else if (sig == 1)
 					VisitRoom();
 				else if (sig == 2)
 					ReloadFromLobbyServ();
-				else if (sig == 5)			
-					SendPassword();						
+				else if (sig == 5)
+					SendPassword();
 				else if (sig == 6)
 					CreatedAndVisit(lobbyCommunicator.RecvInt());
 				else if (sig == 7)
 					UpdateChatRoomList();
 				lobbyMtx.ReleaseMutex();
-				}
-				catch(Exception e)
-				{
-					Console.WriteLine("신호 : {0}", sig);
-					timer.Close();
-					userServThread.Abort();
-					lobbyServThread.Abort();
-					ExitConnect(usrCommunicator);
-					ExitConnect(lobbyCommunicator);
-				}
 			}
 		}
 
@@ -158,8 +149,6 @@ namespace VoiceChatClnt_
 
 		public void CreatedAndVisit(int recvRoomNum)
 		{
-			Console.WriteLine("받은 방번호 : {0}", recvRoomNum);
-			
 			roomNum = recvRoomNum;
 			timer.Enabled = true;			
 			lobbyCommunicator.SendInt(3);
@@ -168,13 +157,11 @@ namespace VoiceChatClnt_
 
 		public void SendPassword()
 		{
-			timer.Enabled = false;
 			this.Invoke(new Action(delegate ()
 			{
 				InputPass inputPass = new InputPass(lobbyCommunicator);
 				inputPass.Show();
 			}));
-			timer.Enabled = true;
 		}
 
 		private void lobbyUpdate(object sender, ElapsedEventArgs e)  // 로비 서버에 지속적으로 업데이트 신호를 보내는 스레드
@@ -204,13 +191,13 @@ namespace VoiceChatClnt_
 
 		public void VisitRoom()
 		{
+            timer.Enabled = false;
 			this.Invoke(new Action(delegate ()
 			{
-				Console.WriteLine("들어가려는 방 번호 : {0}",roomNum);
-				chatRoom = new ChatRoom(myUserData, usrCommunicator, lobbyCommunicator, roomNum, roomName);
+				Console.WriteLine(roomNum);
+				chatRoom = new ChatRoom(myUserData, usrCommunicator, lobbyCommunicator, roomNum);
 				chatRoom.FormClosed += (object sender, FormClosedEventArgs e) => { timer.Enabled = true; chatRoom = null; };
-				chatRoom.Show();
-				
+				chatRoom.Show();		
 			}));		
 		}
 
@@ -266,17 +253,20 @@ namespace VoiceChatClnt_
 
 		public void InviteAccepted()
 		{
-			string origin = usrCommunicator.RecvString();
-			string nick = origin.Split(",".ToCharArray())[0];
-			string num = origin.Split(",".ToCharArray())[1];
-			if (MessageBox.Show(this, "친구 초대", $"{nick}님이 {num}번 방으로 초대하셨습니다.", MessageBoxButtons.YesNo) == DialogResult.Yes)
-			{
-				lobbyCommunicator.SendInt(3);
-				lobbyCommunicator.SendInt(int.Parse(num));
-			}
-		}
+            string origin = usrCommunicator.RecvString();
+            string nick = origin.Split(",".ToCharArray())[0];
+            string num = origin.Split(",".ToCharArray())[1];
+            Invoke(new Action(delegate ()
+            {
+                if (MessageBox.Show(this, "친구 초대", $"{nick}님이 {num}번 방으로 초대하셨습니다.", MessageBoxButtons.YesNo) == DialogResult.Yes)
+                {
+                    lobbyCommunicator.SendInt(3);
+                    lobbyCommunicator.SendInt(int.Parse(num));
+                }
+            }));
+        }
 
-		public static void InitListColumns(ref ListView lv, params string[] args) // 리스트 뷰 컬럼 추가
+        public static void InitListColumns(ref ListView lv, params string[] args) // 리스트 뷰 컬럼 추가
 		{
 			foreach (string str in args)
 				lv.Columns.Add(str);			

@@ -157,8 +157,6 @@ namespace VoiceChatClnt_
 			byte[] data = Encoding.UTF8.GetBytes(query);			
 			stream.Write(BitConverter.GetBytes(data.Length), 0, sizeof(int));
 			stream.Write(data, 0, data.Length);
-			Console.WriteLine(query);
-			Console.WriteLine(Encoding.UTF8.GetString(data));
 			Console.WriteLine("전송끝");
 		}
 

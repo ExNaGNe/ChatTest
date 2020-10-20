@@ -258,7 +258,7 @@ namespace Server
         private void TimerHandler(object sender, ElapsedEventArgs e)
         {
             var copy = RefreshEvent;
-            if (Re_flag && copy != null)
+            if (copy != null)
             {
                 Console.WriteLine($"[{NOW()}]타이머 이벤트 발생");
                 copy();
@@ -336,9 +336,9 @@ namespace Server
                                 return;
                         }
                     }
-                    catch
+                    catch(Exception ex)
                     {
-                        Console.WriteLine($"[{NOW()}]{info.id} 유저 연결 끊김");
+                        Console.WriteLine($"[{NOW()}]{info.id} 유저 연결 끊김{ex.StackTrace}");
                         Disconnect();
                         return;
                     }
@@ -383,7 +383,8 @@ namespace Server
                             using (MySqlDataReader reader = comm.ExecuteReader())
                             {
                                 reader.Read();
-                                if((string) reader[3] != "로비")
+                                Console.WriteLine($"[{NOW()}]{reader[0]} 위치:{reader[3]}");
+                                if ((string) reader[3] != "로비")
                                 {
                                     return;
                                 }
@@ -391,7 +392,7 @@ namespace Server
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"[{NOW()}]친구 초대 DB 에러 {ex.Message}");
+                            Console.WriteLine($"[{NOW()}]친구 초대 DB 에러 {ex.Message} {ex.StackTrace}");
                         }
                     }
                 }
@@ -435,7 +436,10 @@ namespace Server
                     temp.MyMutex.WaitOne();
                     NETSTREAM.Write(temp.stream, sign);              //sign 전송
                     if(sign == (int) SIGN.INVITE)
+                    { 
                         NETSTREAM.Write(temp.stream, $"{info.nick_name}({info.id}),{num}");
+                        Console.WriteLine($"[{NOW()}]{id} 유저 초대 {info.id}가 {num}번 장으로");
+                    }
                     else
                         NETSTREAM.Write(temp.stream, info.GetString());
                     temp.MyMutex.ReleaseMutex();
@@ -615,7 +619,7 @@ namespace Server
 
             string Get_SelFriendQuery(string id)
             {
-                return $"{GET_FIRENDS}{id}{GET_FIRENDS2}{info.id}'";
+                return $"{GET_FIRENDS}{info.id}{GET_FIRENDS2}{id}'";
             }
 
             string Get_AcceptQuery(string id, string friendid)
