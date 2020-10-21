@@ -12,16 +12,10 @@ using System.Timers;
 
 namespace VoiceChatClnt_
 {
-    //public static class CONST
-    //{
-    //    public static string NOW() => return Da
-    //}
-
 	public partial class Lobby : Form
 	{
 		VoiceChatTCP usrCommunicator = null;
-		VoiceChatTCP lobbyCommunicator = null; // new VoiceChatTCP("10.10.20.47", 7000);
-											   //VoiceChatUDP chatCommunicator = new VoiceChatUDP("10.10.20.213", 44444);
+		VoiceChatTCP lobbyCommunicator = null;
 		static Mutex lobbyMtx = new Mutex();
 
 		static Thread userServThread;
@@ -71,10 +65,12 @@ namespace VoiceChatClnt_
 
 		private void bt_enterRoom_Click(object sender, EventArgs e)
 		{			
-			lobbyCommunicator.SendInt(3);
-
 			string strRoomNum = GetElementBySelectedRow(ref lv_lobbyRooms, 0);
 			Console.WriteLine(strRoomNum);
+            if (roomNum <= 0)
+                return;
+			lobbyCommunicator.SendInt(3);
+
 			roomNum = int.Parse(strRoomNum);
 			lobbyCommunicator.SendInt(roomNum);			
 		}		
@@ -113,10 +109,6 @@ namespace VoiceChatClnt_
 				cb_stateList.SelectedIndex = 0;				
 			}));
 
-			/*
-			lobbyCommunicator.SendInt(4);
-			lobbyCommunicator.SendLinkedStr(myUserData.ID, myUserData.Nickname, "1");
-			*/
             lobbyUpdate(null, null);
             timer.Enabled = true;
             int sig = 0;
@@ -124,22 +116,24 @@ namespace VoiceChatClnt_
 			{
 				sig = lobbyCommunicator.RecvInt();
                 Console.WriteLine($"신호:{sig}");
-				lobbyMtx.WaitOne();
+                timer.Enabled = false;
+                lobbyMtx.WaitOne();
 				if (sig == 0)
 					;
 				else if (sig == 1)
-					VisitRoom();
+					VisitRoom();            //방 입장(roomNum 필요) 확인
 				else if (sig == 2)
-					ReloadFromLobbyServ();
+					ReloadFromLobbyServ();  //방 리스트 동기화
 				else if (sig == 5)
-					SendPassword();
+					SendPassword();         //방 비밀번호 필요
 				else if (sig == 6)
-					CreatedAndVisit(lobbyCommunicator.RecvInt());
+					CreatedAndVisit(lobbyCommunicator.RecvInt());       //방 생성, 입장신호 전송
 				else if (sig == 7)
-					UpdateChatRoomList();
+					UpdateChatRoomList();   //방 안의 유저 리스트 동기화
 				lobbyMtx.ReleaseMutex();
-			}
-		}
+                timer.Enabled = true;
+            }
+        }
 
 		public void UpdateChatRoomList()
 		{
@@ -196,7 +190,7 @@ namespace VoiceChatClnt_
 			{
 				Console.WriteLine(roomNum);
 				chatRoom = new ChatRoom(myUserData, usrCommunicator, lobbyCommunicator, roomNum);
-				chatRoom.FormClosed += (object sender, FormClosedEventArgs e) => { timer.Enabled = true; chatRoom = null; };
+				chatRoom.FormClosed += (object sender, FormClosedEventArgs e) => { timer.Enabled = true; chatRoom = null; roomNum = -1; };
 				chatRoom.Show();		
 			}));		
 		}
@@ -260,6 +254,7 @@ namespace VoiceChatClnt_
             {
                 if (MessageBox.Show(this, "친구 초대", $"{nick}님이 {num}번 방으로 초대하셨습니다.", MessageBoxButtons.YesNo) == DialogResult.Yes)
                 {
+                    roomNum = int.Parse(num);
                     lobbyCommunicator.SendInt(3);
                     lobbyCommunicator.SendInt(int.Parse(num));
                 }

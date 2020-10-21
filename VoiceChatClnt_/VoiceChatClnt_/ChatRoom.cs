@@ -281,9 +281,7 @@ public class VoiceChater
 		foreach(PartiData data in _partiDatas)
 		{
 			outputWaves.Add(new WaveOutputer(data.num));			
-		}				
-
-		
+		}			
 	}	
 
 	public void PlayInput()
@@ -304,7 +302,15 @@ public class VoiceChater
 		}
 	}
 
-	public int GetSimbolNum(byte[] data)
+    //public void StopOutput()
+    //{
+    //    foreach (WaveOutputer output in outputWaves)
+    //    {
+    //        output.Output.Stop();
+    //    }
+    //}
+
+    public int GetSimbolNum(byte[] data)
 	{
 		byte[] recvNumByte = new byte[4];
 		Array.Copy(data, recvNumByte, recvNumByte.Length);
@@ -348,6 +354,7 @@ public class VoiceChater
 		{
 			outputer.BufferClear();
 		}
+        
 	}
 
 	public void DisposeOutputs()
@@ -356,6 +363,7 @@ public class VoiceChater
 		{
 			outputer.DisposeOutput();
 		}
+        outputWaves.Clear();
 	}
 
 	public bool CheckIsNumOfOuter(int num, WaveOutputer waveOuter)
@@ -418,9 +426,13 @@ public class WaveOutputer
 
 	public void DisposeOutput()
 	{
-		BufferStream.ClearBuffer();
-		Output.Dispose();
-	}
+        Output.Stop();
+        Output.Dispose();
+        Output = null;
+        BufferStream.ClearBuffer();
+        System.GC.Collect();
+        System.GC.WaitForPendingFinalizers();
+    }
 
 	public void BufferClear()
 	{
