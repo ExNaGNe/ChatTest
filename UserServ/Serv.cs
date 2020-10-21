@@ -248,13 +248,12 @@ namespace Server
                 try
                 {
                     TcpClient client = listen.AcceptTcpClient();
-                    Console.WriteLine($"[{NOW()}]클라이언트 연결됨");
                     NetworkStream stream = client.GetStream();
 
                     string id = NETSTREAM.ReadStr(stream);
                     string nick = id.Split(",".ToCharArray())[1];
                     id = id.Split(",".ToCharArray())[0];
-
+                    Console.WriteLine($"[{NOW()}]클라이언트 연결됨({id},{nick})");
                     User user = new User(new Info(id, nick), stream, this);
                     Re_flag = true;
                 }

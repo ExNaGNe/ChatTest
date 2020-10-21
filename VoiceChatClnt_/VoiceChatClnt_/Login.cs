@@ -94,6 +94,13 @@ namespace VoiceChatClnt_
         {
 
         }
+
+        private void tb_pw_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode != Keys.Enter)
+                return;
+            bt_login_Click(null, null);
+        }
     }
 
     public class VoiceChatTCP

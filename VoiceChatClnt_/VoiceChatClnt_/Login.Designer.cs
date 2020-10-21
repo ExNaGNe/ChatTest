@@ -68,6 +68,7 @@
             this.tb_pw.PasswordChar = '●';
             this.tb_pw.Size = new System.Drawing.Size(181, 21);
             this.tb_pw.TabIndex = 3;
+            this.tb_pw.KeyDown += new System.Windows.Forms.KeyEventHandler(this.tb_pw_KeyDown);
             // 
             // bt_login
             // 
