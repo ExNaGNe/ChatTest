@@ -68,8 +68,11 @@ namespace VoiceChatClnt_
 			string strRoomNum = GetElementBySelectedRow(ref lv_lobbyRooms, 0);
 			Console.WriteLine(strRoomNum);
             if (roomNum <= 0)
+            {
+                roomNum = -1;
                 return;
-			lobbyCommunicator.SendInt(3);
+            }
+            lobbyCommunicator.SendInt(3);
 
 			roomNum = int.Parse(strRoomNum);
 			lobbyCommunicator.SendInt(roomNum);			
@@ -144,6 +147,8 @@ namespace VoiceChatClnt_
 		public void CreatedAndVisit(int recvRoomNum)
 		{
 			roomNum = recvRoomNum;
+            if (roomNum < 0)
+                return;
 			timer.Enabled = true;			
 			lobbyCommunicator.SendInt(3);
 			lobbyCommunicator.SendInt(roomNum);			
@@ -377,11 +382,16 @@ namespace VoiceChatClnt_
 
 		private void lv_lobbyRooms_MouseDoubleClick(object sender, MouseEventArgs e)
 		{
-			lobbyCommunicator.SendInt(3);
-
 			string strRoomNum = GetElementBySelectedRow(ref lv_lobbyRooms, 0);
-			Console.WriteLine(strRoomNum);
 			roomNum = int.Parse(strRoomNum);
+            if (roomNum <= 0)
+            {
+                roomNum = -1;
+                return;
+            }
+            lobbyCommunicator.SendInt(3);
+
+			Console.WriteLine(strRoomNum);
 			lobbyCommunicator.SendInt(roomNum);
 		}
 
