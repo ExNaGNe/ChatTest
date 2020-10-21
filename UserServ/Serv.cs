@@ -451,7 +451,7 @@ namespace Server
                     if(sign == (int) SIGN.INVITE)
                     { 
                         NETSTREAM.Write(temp.stream, $"{info.nick_name}({info.id}),{num}");
-                        Console.WriteLine($"[{NOW()}]{id} 유저 초대 {info.id}가 {num}번 장으로");
+                        Console.WriteLine($"[{NOW()}]{id} 유저 초대 {info.id}가 {num}번방으로 초대");
                     }
                     else
                         NETSTREAM.Write(temp.stream, info.GetString());

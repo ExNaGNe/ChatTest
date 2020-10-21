@@ -12,7 +12,7 @@ namespace VoiceChatClnt_
 {
 	public partial class CreateRoom : Form
 	{
-        static string[] Not_Allow = new string[] { ",", "@", "$", "!", "#", "%", "^", "&", "*", "(", ")", "-", "+", "=" };
+        static string[] Not_Allow = new string[] { "," };
         VoiceChatTCP communicator = null;		
 		
 		public CreateRoom(VoiceChatTCP _communicator)
@@ -25,9 +25,14 @@ namespace VoiceChatClnt_
 
 		private void bt_createRoom_Click(object sender, EventArgs e)
 		{
+            if (string.IsNullOrEmpty(tb_roomTitle.Text.Trim()))
+            {
+                MessageBox.Show("방 제목은 빌 수 없습니다.");
+                return;
+            }
             if (Not_Allow.Any(tb_roomTitle.Text.Contains) || Not_Allow.Any(tb_roompass.Text.Contains))
             {
-                MessageBox.Show("특수문자는 포함할 수 없습니다.");
+                MessageBox.Show("방 제목이나 비밀번호에 포함할 수 없는 특수문자가 포함되었습니다.");
                 return;
             }
             if(cb_roompass.Checked && tb_roompass.Text.Length < 4)
