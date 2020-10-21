@@ -1,33 +1,33 @@
 ﻿namespace VoiceChatClnt_
 {
-	partial class ChatRoom
-	{
-		/// <summary>
-		/// Required designer variable.
-		/// </summary>
-		private System.ComponentModel.IContainer components = null;
+    partial class ChatRoom
+    {
+        /// <summary>
+        /// Required designer variable.
+        /// </summary>
+        private System.ComponentModel.IContainer components = null;
 
-		/// <summary>
-		/// Clean up any resources being used.
-		/// </summary>
-		/// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
-		protected override void Dispose(bool disposing)
-		{
-			if (disposing && (components != null))
-			{
-				components.Dispose();
-			}
-			base.Dispose(disposing);
-		}
+        /// <summary>
+        /// Clean up any resources being used.
+        /// </summary>
+        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && (components != null))
+            {
+                components.Dispose();
+            }
+            base.Dispose(disposing);
+        }
 
-		#region Windows Form Designer generated code
+        #region Windows Form Designer generated code
 
-		/// <summary>
-		/// Required method for Designer support - do not modify
-		/// the contents of this method with the code editor.
-		/// </summary>
-		private void InitializeComponent()
-		{
+        /// <summary>
+        /// Required method for Designer support - do not modify
+        /// the contents of this method with the code editor.
+        /// </summary>
+        private void InitializeComponent()
+        {
             this.lv_parti = new System.Windows.Forms.ListView();
             this.label1 = new System.Windows.Forms.Label();
             this.bt_invite = new System.Windows.Forms.Button();
@@ -36,7 +36,6 @@
             this.label2 = new System.Windows.Forms.Label();
             this.rtb_chatWindow = new System.Windows.Forms.RichTextBox();
             this.tb_inputMsg = new System.Windows.Forms.TextBox();
-            this.bt_inputMsg = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // lv_parti
@@ -103,6 +102,7 @@
             // 
             // rtb_chatWindow
             // 
+            this.rtb_chatWindow.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.rtb_chatWindow.Location = new System.Drawing.Point(13, 44);
             this.rtb_chatWindow.Name = "rtb_chatWindow";
             this.rtb_chatWindow.Size = new System.Drawing.Size(233, 327);
@@ -113,25 +113,15 @@
             // 
             this.tb_inputMsg.Location = new System.Drawing.Point(13, 396);
             this.tb_inputMsg.Name = "tb_inputMsg";
-            this.tb_inputMsg.Size = new System.Drawing.Size(170, 21);
+            this.tb_inputMsg.Size = new System.Drawing.Size(233, 21);
             this.tb_inputMsg.TabIndex = 7;
-            // 
-            // bt_inputMsg
-            // 
-            this.bt_inputMsg.Location = new System.Drawing.Point(190, 396);
-            this.bt_inputMsg.Name = "bt_inputMsg";
-            this.bt_inputMsg.Size = new System.Drawing.Size(56, 23);
-            this.bt_inputMsg.TabIndex = 8;
-            this.bt_inputMsg.Text = "입력";
-            this.bt_inputMsg.UseVisualStyleBackColor = true;
-            this.bt_inputMsg.Click += new System.EventHandler(this.bt_inputMsg_Click);
+            this.tb_inputMsg.KeyDown += new System.Windows.Forms.KeyEventHandler(this.tb_inputMsg_KeyDown);
             // 
             // ChatRoom
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(524, 447);
-            this.Controls.Add(this.bt_inputMsg);
             this.Controls.Add(this.tb_inputMsg);
             this.Controls.Add(this.rtb_chatWindow);
             this.Controls.Add(this.label2);
@@ -140,6 +130,8 @@
             this.Controls.Add(this.bt_invite);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.lv_parti);
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
+            this.MaximizeBox = false;
             this.Name = "ChatRoom";
             this.Text = "ChatRoom";
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.ChatRoom_FormClosed);
@@ -147,18 +139,17 @@
             this.ResumeLayout(false);
             this.PerformLayout();
 
-		}
+        }
 
-		#endregion
+        #endregion
 
-		private System.Windows.Forms.ListView lv_parti;
-		private System.Windows.Forms.Label label1;
-		private System.Windows.Forms.Button bt_invite;
-		private System.Windows.Forms.Button bt_exitRoom;
-		private System.Windows.Forms.ListView lv_roomFriends;
-		private System.Windows.Forms.Label label2;
-		private System.Windows.Forms.RichTextBox rtb_chatWindow;
-		private System.Windows.Forms.TextBox tb_inputMsg;
-		private System.Windows.Forms.Button bt_inputMsg;
-	}
+        private System.Windows.Forms.ListView lv_parti;
+        private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.Button bt_invite;
+        private System.Windows.Forms.Button bt_exitRoom;
+        private System.Windows.Forms.ListView lv_roomFriends;
+        private System.Windows.Forms.Label label2;
+        private System.Windows.Forms.RichTextBox rtb_chatWindow;
+        private System.Windows.Forms.TextBox tb_inputMsg;
+    }
 }

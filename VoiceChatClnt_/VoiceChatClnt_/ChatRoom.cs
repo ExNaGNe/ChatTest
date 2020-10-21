@@ -12,10 +12,11 @@ using System.Net.Sockets;
 using NAudio.Wave;
 using System.Net;
 using VoiceChatClnt_;
+using static Constant.CONST;
 
 namespace VoiceChatClnt_
 {
-	public partial class ChatRoom : Form
+    public partial class ChatRoom : Form
 	{
 		VoiceChatTCP usrCommunicator = null;
 		VoiceChatTCP lobbyCommunicator = null;
@@ -146,7 +147,6 @@ namespace VoiceChatClnt_
 				if (myUserData.ID.Equals(data.ID))
 					return data.num;
 			}
-
 			return -1;
 		}
 
@@ -162,11 +162,30 @@ namespace VoiceChatClnt_
 			}
 		}
 
-		private void bt_inputMsg_Click(object sender, EventArgs e)
-		{
-			string msg = tb_inputMsg.Text;
-			tChater.SendMessage(msg);
-		}
+        private void tb_inputMsg_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode != Keys.Enter)
+                return;
+            Chating();
+        }
+
+        private void Chating()
+        {
+            string msg = tb_inputMsg.Text;
+            if (msg.StartsWith("/"))
+            {
+                switch (msg.Split("/".ToCharArray())[1].ToLower())
+                {
+                    case CLEAR:
+                        rtb_chatWindow.Clear();
+                        break;
+                }
+                tb_inputMsg.Clear();
+                return;
+            }
+            tChater.SendMessage(msg);
+            tb_inputMsg.Clear();
+        }
 
 		private void bt_invite_Click(object sender, EventArgs e)
 		{
@@ -207,6 +226,14 @@ namespace VoiceChatClnt_
 
             vChater.DisposeOutputs();
         }
+    }
+}
+
+namespace Constant
+{
+    public static class CONST
+    {
+        public const string CLEAR = "clear";
     }
 }
 
@@ -302,14 +329,6 @@ public class VoiceChater
 		}
 	}
 
-    //public void StopOutput()
-    //{
-    //    foreach (WaveOutputer output in outputWaves)
-    //    {
-    //        output.Output.Stop();
-    //    }
-    //}
-
     public int GetSimbolNum(byte[] data)
 	{
 		byte[] recvNumByte = new byte[4];
@@ -397,7 +416,6 @@ public class VoiceChater
 		
 	}
 }
-
 
 public class WaveOutputer
 {

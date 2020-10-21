@@ -20,7 +20,6 @@ namespace VoiceChatClnt_
 
 		static Thread userServThread;
 		static Thread lobbyServThread;
-		static Thread chatServThread;
 
 		ChatRoom chatRoom;
 
@@ -121,18 +120,24 @@ namespace VoiceChatClnt_
                 Console.WriteLine($"신호:{sig}");
                 timer.Enabled = false;
                 lobbyMtx.WaitOne();
-				if (sig == 0)
-					;
-				else if (sig == 1)
-					VisitRoom();            //방 입장(roomNum 필요) 확인
-				else if (sig == 2)
-					ReloadFromLobbyServ();  //방 리스트 동기화
-				else if (sig == 5)
-					SendPassword();         //방 비밀번호 필요
-				else if (sig == 6)
-					CreatedAndVisit(lobbyCommunicator.RecvInt());       //방 생성, 입장신호 전송
-				else if (sig == 7)
-					UpdateChatRoomList();   //방 안의 유저 리스트 동기화
+                switch (sig)
+                {
+                    case 1:
+                        VisitRoom();            //방 입장(roomNum 필요) 확인
+                        break;
+                    case 2:
+                        ReloadFromLobbyServ();  //방 리스트 동기화
+                        break;
+                    case 5:
+                        SendPassword();         //방 비밀번호 필요
+                        break;
+                    case 6:
+                        CreatedAndVisit(lobbyCommunicator.RecvInt());       //방 생성, 입장신호 전송
+                        break;
+                    case 7:
+                        UpdateChatRoomList();   //방 안의 유저 리스트 동기화
+                        break;
+                }
 				lobbyMtx.ReleaseMutex();
                 timer.Enabled = true;
             }
