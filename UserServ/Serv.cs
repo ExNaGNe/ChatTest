@@ -209,6 +209,7 @@ namespace Server
                                 case 2:
                                     temp = users.Find(x => x.info.id == id);
                                     temp.Refresh();
+                                    Re_flag = true;
                                     break;
                             }
                         }
