@@ -23,6 +23,8 @@ namespace VoiceChatClnt_
 		{
 			InitializeComponent();
 			StartPosition = FormStartPosition.CenterScreen;
+            tb_id.MaxLength = 16;
+            tb_pw.MaxLength = 16;
 		}
 
 		private void bt_login_Click(object sender, EventArgs e)
