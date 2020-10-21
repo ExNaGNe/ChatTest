@@ -80,7 +80,7 @@ namespace Server
 
         static public void Write(NetworkStream stream, string str)
         {
-            stream.Write(BitConverter.GetBytes(str.Length), 0, sizeof(int));
+            stream.Write(BitConverter.GetBytes(Encoding.UTF8.GetBytes(str).Length), 0, sizeof(int));
             stream.Write(Encoding.UTF8.GetBytes(str), 0, Encoding.UTF8.GetBytes(str).Length);
         }
 
@@ -203,6 +203,7 @@ namespace Server
                                     users_mutex.WaitOne();
                                     temp.info.state = state;
                                     users_mutex.ReleaseMutex();
+                                    temp.Refresh();
                                     Re_flag = true;
                                     break;
                                 case 2:
@@ -269,7 +270,7 @@ namespace Server
         private void TimerHandler(object sender, ElapsedEventArgs e)
         {
             var copy = RefreshEvent;
-            if (copy != null)
+            if (Re_flag && copy != null)
             {
                 Console.WriteLine($"[{NOW()}]타이머 이벤트 발생");
                 copy();
@@ -580,9 +581,9 @@ namespace Server
                     }
                     MyMutex.ReleaseMutex();
                 }
-                catch
+                catch(Exception ex)
                 {
-                    Console.WriteLine($"[{NOW()}]동기화 에러");
+                    Console.WriteLine($"[{NOW()}]동기화 에러 {ex.Message} {ex.StackTrace}");
                     MyMutex.Close();
                 }
             }

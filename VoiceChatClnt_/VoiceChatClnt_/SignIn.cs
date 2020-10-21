@@ -15,12 +15,16 @@ namespace VoiceChatClnt_
 {
 	public partial class SignIn : Form
 	{
-        string[] Not_Allow = new string[] {", ","@","$","!","#","%","^","&","*","(",")","-","+","=" };
+        string[] Not_Allow = new string[] {",","@","$","!","#","%","^","&","*","(",")","-","+","=" };
 		VoiceChatTCP communicator = null;
 
 		public SignIn()
 		{
 			InitializeComponent();
+            tb_signId.MaxLength = 16;
+            tb_signPw.MaxLength = 16;
+            tb_signPw2.MaxLength = 16;
+            tb_signInName.MaxLength = 16;
 		}
 
 		public SignIn(VoiceChatTCP _communicator)

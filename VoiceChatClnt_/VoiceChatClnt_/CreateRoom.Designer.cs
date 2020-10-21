@@ -58,7 +58,7 @@
             // 
             this.bt_createRoom.Location = new System.Drawing.Point(226, 68);
             this.bt_createRoom.Name = "bt_createRoom";
-            this.bt_createRoom.Size = new System.Drawing.Size(116, 23);
+            this.bt_createRoom.Size = new System.Drawing.Size(116, 22);
             this.bt_createRoom.TabIndex = 2;
             this.bt_createRoom.Text = "생성";
             this.bt_createRoom.UseVisualStyleBackColor = true;
@@ -105,7 +105,8 @@
             this.MaximizeBox = false;
             this.MinimizeBox = false;
             this.Name = "CreateRoom";
-            this.Text = "CreateRoom";
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
+            this.Text = "방 생성";
             this.Load += new System.EventHandler(this.CreateRoom_Load);
             this.ResumeLayout(false);
             this.PerformLayout();

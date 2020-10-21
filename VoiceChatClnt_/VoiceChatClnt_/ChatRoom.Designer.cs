@@ -40,11 +40,14 @@
             // 
             // lv_parti
             // 
+            this.lv_parti.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lv_parti.FullRowSelect = true;
             this.lv_parti.GridLines = true;
+            this.lv_parti.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.Nonclickable;
             this.lv_parti.HideSelection = false;
-            this.lv_parti.Location = new System.Drawing.Point(272, 44);
+            this.lv_parti.Location = new System.Drawing.Point(293, 44);
             this.lv_parti.Name = "lv_parti";
-            this.lv_parti.Size = new System.Drawing.Size(219, 144);
+            this.lv_parti.Size = new System.Drawing.Size(219, 156);
             this.lv_parti.TabIndex = 0;
             this.lv_parti.UseCompatibleStateImageBehavior = false;
             this.lv_parti.View = System.Windows.Forms.View.Details;
@@ -53,7 +56,7 @@
             // 
             this.label1.AutoSize = true;
             this.label1.Font = new System.Drawing.Font("맑은 고딕", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
-            this.label1.Location = new System.Drawing.Point(268, 20);
+            this.label1.Location = new System.Drawing.Point(289, 20);
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(96, 21);
             this.label1.TabIndex = 1;
@@ -61,7 +64,7 @@
             // 
             // bt_invite
             // 
-            this.bt_invite.Location = new System.Drawing.Point(272, 396);
+            this.bt_invite.Location = new System.Drawing.Point(293, 377);
             this.bt_invite.Name = "bt_invite";
             this.bt_invite.Size = new System.Drawing.Size(107, 23);
             this.bt_invite.TabIndex = 2;
@@ -71,9 +74,9 @@
             // 
             // bt_exitRoom
             // 
-            this.bt_exitRoom.Location = new System.Drawing.Point(384, 396);
+            this.bt_exitRoom.Location = new System.Drawing.Point(405, 377);
             this.bt_exitRoom.Name = "bt_exitRoom";
-            this.bt_exitRoom.Size = new System.Drawing.Size(107, 23);
+            this.bt_exitRoom.Size = new System.Drawing.Size(107, 56);
             this.bt_exitRoom.TabIndex = 3;
             this.bt_exitRoom.Text = "나가기";
             this.bt_exitRoom.UseVisualStyleBackColor = true;
@@ -81,9 +84,11 @@
             // 
             // lv_roomFriends
             // 
+            this.lv_roomFriends.FullRowSelect = true;
             this.lv_roomFriends.GridLines = true;
             this.lv_roomFriends.HideSelection = false;
-            this.lv_roomFriends.Location = new System.Drawing.Point(272, 227);
+            this.lv_roomFriends.Location = new System.Drawing.Point(293, 227);
+            this.lv_roomFriends.MultiSelect = false;
             this.lv_roomFriends.Name = "lv_roomFriends";
             this.lv_roomFriends.Size = new System.Drawing.Size(219, 144);
             this.lv_roomFriends.TabIndex = 4;
@@ -94,7 +99,7 @@
             // 
             this.label2.AutoSize = true;
             this.label2.Font = new System.Drawing.Font("맑은 고딕", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
-            this.label2.Location = new System.Drawing.Point(268, 203);
+            this.label2.Location = new System.Drawing.Point(289, 203);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(80, 21);
             this.label2.TabIndex = 5;
@@ -103,17 +108,19 @@
             // rtb_chatWindow
             // 
             this.rtb_chatWindow.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.rtb_chatWindow.Location = new System.Drawing.Point(13, 44);
+            this.rtb_chatWindow.Location = new System.Drawing.Point(12, 20);
             this.rtb_chatWindow.Name = "rtb_chatWindow";
-            this.rtb_chatWindow.Size = new System.Drawing.Size(233, 327);
+            this.rtb_chatWindow.ScrollBars = System.Windows.Forms.RichTextBoxScrollBars.Vertical;
+            this.rtb_chatWindow.Size = new System.Drawing.Size(271, 386);
             this.rtb_chatWindow.TabIndex = 6;
             this.rtb_chatWindow.Text = "";
+            this.rtb_chatWindow.TextChanged += new System.EventHandler(this.rtb_chatWindow_TextChanged);
             // 
             // tb_inputMsg
             // 
-            this.tb_inputMsg.Location = new System.Drawing.Point(13, 396);
+            this.tb_inputMsg.Location = new System.Drawing.Point(13, 412);
             this.tb_inputMsg.Name = "tb_inputMsg";
-            this.tb_inputMsg.Size = new System.Drawing.Size(233, 21);
+            this.tb_inputMsg.Size = new System.Drawing.Size(387, 21);
             this.tb_inputMsg.TabIndex = 7;
             this.tb_inputMsg.KeyDown += new System.Windows.Forms.KeyEventHandler(this.tb_inputMsg_KeyDown);
             // 
@@ -133,7 +140,8 @@
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
             this.Name = "ChatRoom";
-            this.Text = "ChatRoom";
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
+            this.Text = "방";
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.ChatRoom_FormClosed);
             this.Load += new System.EventHandler(this.ChatRoom_Load);
             this.ResumeLayout(false);

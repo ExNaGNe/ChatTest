@@ -40,6 +40,8 @@ namespace VoiceChatClnt_
 		{
 			InitializeComponent();
 
+            Text = $"{_roomNum}번방";
+
 			usrCommunicator = usrComm;
 			lobbyCommunicator = lobbyComm;
 			myUserData = myUsr;
@@ -63,14 +65,13 @@ namespace VoiceChatClnt_
 			RecvAndReleaseChatThread = new Thread(new ThreadStart(RecvAndReleaseChat));
 			RecvAndReleaseThread.Start();
 			RecvAndReleaseChatThread.Start();		
-
 		}
 
 		private void RecvAndReleaseChat()
 		{
 			while (start == 0)
 			{
-				Console.WriteLine(start);
+				//Console.WriteLine(start);
 				Thread.Sleep(1);
 			}
 
@@ -90,7 +91,7 @@ namespace VoiceChatClnt_
 
 			while (start == 0)
 			{
-				Console.WriteLine(start);
+				//Console.WriteLine(start);
 				Thread.Sleep(1);
 			}
 
@@ -112,7 +113,7 @@ namespace VoiceChatClnt_
 		{
             if (partiList.Count <= 0)
                 return;
-			Console.WriteLine("aaa");
+			//Console.WriteLine("aaa");
 			SetPartiDatas(partiList);			
 
 			this.Invoke(new Action(delegate ()
@@ -172,6 +173,8 @@ namespace VoiceChatClnt_
         private void Chating()
         {
             string msg = tb_inputMsg.Text;
+            if (string.IsNullOrEmpty(msg.Trim()))
+                return;
             if (msg.StartsWith("/"))
             {
                 switch (msg.Split("/".ToCharArray())[1].ToLower())
@@ -189,6 +192,10 @@ namespace VoiceChatClnt_
 
 		private void bt_invite_Click(object sender, EventArgs e)
 		{
+            if (lv_roomFriends.SelectedItems.Count <= 0)
+                return;
+            if (lv_roomFriends.SelectedItems[0].SubItems[2].Text != "온라인")
+                return;
             usrCommunicator.SendInt(2);
             usrCommunicator.SendStr(lv_roomFriends.SelectedItems[0].SubItems[0].Text + "," + roomNum);
 		}
@@ -225,6 +232,12 @@ namespace VoiceChatClnt_
             partiDatas = null;
 
             vChater.DisposeOutputs();
+        }
+
+        private void rtb_chatWindow_TextChanged(object sender, EventArgs e)
+        {
+            rtb_chatWindow.Select(rtb_chatWindow.Text.Length,0);
+            rtb_chatWindow.ScrollToCaret();
         }
     }
 }
@@ -378,6 +391,8 @@ public class VoiceChater
 
 	public void DisposeOutputs()
 	{
+        //if (outputWaves == null || outputWaves.Count <= 0)
+        //    return;
 		foreach (WaveOutputer outputer in outputWaves)
 		{
 			outputer.DisposeOutput();
@@ -413,7 +428,6 @@ public class VoiceChater
 		{
 			MessageBox.Show(ex.Message);
 		}
-		
 	}
 }
 
