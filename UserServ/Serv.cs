@@ -179,6 +179,9 @@ namespace Server
         void Lobby_th()             //로비 서버 쓰레드
         {
             User temp;
+            STATE state;
+            string id;
+            string sign;
             while (th_flag)
             {
                 try
@@ -187,15 +190,15 @@ namespace Server
                     if (!string.IsNullOrEmpty(read))
                     {
                         Console.WriteLine($"[{NOW()}]로비로부터 받은 문자열:{read}");
-                        string id = read.Split(",".ToCharArray())[1];
-                        STATE state = (STATE)int.Parse(read.Split(",".ToCharArray())[3]);
-                        string sign = read.Split(",".ToCharArray())[0];
+                        id = read.Split(",".ToCharArray())[1];
+                        sign = read.Split(",".ToCharArray())[0];
                         //Consol.WriteLine($"[{NOW()}]로비로부터 받은 값:{id},{state}");               
                         try
                         {
                             switch (int.Parse(sign))
                             {
                                 case 1:
+                                    state = (STATE)int.Parse(read.Split(",".ToCharArray())[3]);
                                     temp = users.Find(x => x.info.id == id);
                                     users_mutex.WaitOne();
                                     temp.info.state = state;
