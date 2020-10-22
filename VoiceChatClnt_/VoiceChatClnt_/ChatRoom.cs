@@ -49,7 +49,7 @@ namespace VoiceChatClnt_
 			chatRoomPort = _roomNum + 18000;
             roomNum = _roomNum;
 
-			Lobby.InitListColumns(ref lv_parti, "아이디", "닉네임", "상태");
+			Lobby.InitListColumns(ref lv_parti, "아이디", "닉네임");
 			Lobby.InitListColumns(ref lv_roomFriends, "아이디", "닉네임", "상태", "위치");
 			
 

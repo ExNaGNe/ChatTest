@@ -369,6 +369,8 @@ namespace VoiceChatClnt_
 
         private void bt_delFriend_Click(object sender, EventArgs e)     // 친구 삭제 이벤트
         {
+            if (lv_lobbyUsers.SelectedItems.Count <= 0)
+                return;
             string selectId = GetElementBySelectedRow(ref lv_lobbyFriends, 0);
             if (selectId.Equals(""))
                 return;
