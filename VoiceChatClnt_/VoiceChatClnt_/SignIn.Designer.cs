@@ -145,6 +145,7 @@
             this.Controls.Add(this.gb_1);
             this.Controls.Add(this.bt_signIn);
             this.Name = "SignIn";
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "회원가입";
             this.Load += new System.EventHandler(this.SignIn_Load);
             this.gb_1.ResumeLayout(false);
