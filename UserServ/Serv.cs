@@ -25,6 +25,7 @@ namespace Server
         //친구 리스트 쿼리문자열
         public const string GET_FIRENDS = "SELECT friendlist.friend_id, users.nickname, users.state, users.location, date_format(users.lastout, '%Y-%m-%d %H:%i') " +
             "FROM friendlist inner join users on users.id = friendlist.friend_id where friendlist.id = '";
+        public const string GET_FIRENDS1 = " and users.state != 3";
         public const string GET_FIRENDS2 = "' and friendlist.friend_id = '";
         //친구 추가 문자열
         public const string GET_ACCEPT1 = "insert into friendlist select '";
@@ -139,7 +140,7 @@ namespace Server
 
         TcpClient Lobbyclient;
         TcpListener listen;
-        readonly NetworkStream Lobbystream;
+        NetworkStream Lobbystream;
         bool th_flag = true;
         bool Re_flag = false;
         public Mutex users_mutex = new Mutex(false, "usermutex");
@@ -148,7 +149,10 @@ namespace Server
         public event Refreshing RefreshEvent;
         System.Timers.Timer timer;
 
-        public UserServ()   //로비 서버와 연결(생성자)
+        public UserServ()   
+        {}
+
+        public void Run()   //로비 서버와 연결, 타이머 세팅 후 클라이언트와 연결
         {
             try
             {
@@ -164,10 +168,7 @@ namespace Server
             {
                 Console.WriteLine($"[{NOW()}]로비서버 연결 실패 {ex.Message}");
             }
-        }
 
-        public void Run()   //타이머 세팅 후 클라이언트와 연결
-        {
             timer = new System.Timers.Timer(REFRESH_INTERVAL);  //동기화 타이머(5초)
             timer.Elapsed += TimerHandler;
             timer.AutoReset = true;
@@ -256,12 +257,15 @@ namespace Server
                     string nick = id.Split(",".ToCharArray())[1];
                     id = id.Split(",".ToCharArray())[0];
                     Console.WriteLine($"[{NOW()}]클라이언트 연결됨({id},{nick})");
-                    User user = new User(new Info(id, nick), stream, this);
+
+                    Info info = new Info(id, nick);
+
+                    User user = new User(info, stream, this);
                     Re_flag = true;
                 }
-                catch 
+                catch (Exception ex)
                 {
-                    Console.WriteLine($"[{NOW()}]클라이언트 연결 실패");
+                    Console.WriteLine($"[{NOW()}]클라이언트 연결 실패{ex.Message} {ex.StackTrace}");
                 }
             }
             Console.WriteLine($"[{NOW()}]클라이언트 접속 대기 종료");
@@ -284,7 +288,7 @@ namespace Server
         {
             public Info info { get; private set; }
             public NetworkStream stream { get; private set; }
-            UserServ Serv;
+            UserServ serv;
             public Mutex MyMutex { get; private set; }
 
             public User()
@@ -294,18 +298,18 @@ namespace Server
             {
                 this.info = info;
                 this.stream = stream;
-                Serv = serv;
+                this.serv = serv;
                 MyMutex = new Mutex(false, $"{info.id}Mutex");
 
                 Thread thread = new Thread(User_th);                //클라이언트 통신 쓰레드 생성
                 thread.Start();
 
-                Serv.users_mutex.WaitOne();
-                Serv.users.Add(this);
-                Serv.users_mutex.ReleaseMutex();
+                this.serv.users_mutex.WaitOne();
+                this.serv.users.Add(this);
+                this.serv.users_mutex.ReleaseMutex();
 
                 Refresh();                                          //입장 후 동기화
-                Serv.RefreshEvent += Refresh;       //동기화 이벤트에 추가
+                this.serv.RefreshEvent += Refresh;       //동기화 이벤트에 추가
             }
 
             public void Refresh()   //동기화 이벤트 발생시 동기화 쓰레드 생성
@@ -318,7 +322,7 @@ namespace Server
             void User_th()  //유저 통신 쓰레드
             {
                 int sign = 0;
-                while (sign != -1 || Serv.th_flag == true)
+                while (sign != -1 || serv.th_flag == true)
                 {
                     try
                     {
@@ -360,11 +364,11 @@ namespace Server
 
             void Disconnect()   //유저 접속 종료 함수
             {
-                Serv.RefreshEvent -= Refresh;
-                Serv.users_mutex.WaitOne();
-                Serv.users.Remove(this);
-                Serv.users_mutex.ReleaseMutex();
-                Serv.Re_flag = true;
+                serv.RefreshEvent -= Refresh;
+                serv.users_mutex.WaitOne();
+                serv.users.Remove(this);
+                serv.users_mutex.ReleaseMutex();
+                serv.Re_flag = true;
                 stream.Close();
             }
 
@@ -439,9 +443,9 @@ namespace Server
                         }
                     }
                 }
-                Serv.users_mutex.WaitOne();
-                List<User> copy = new List<User>(Serv.users);
-                Serv.users_mutex.ReleaseMutex();
+                serv.users_mutex.WaitOne();
+                List<User> copy = new List<User>(serv.users);
+                serv.users_mutex.ReleaseMutex();
 
                 try
                 {
@@ -493,7 +497,7 @@ namespace Server
                         {
                             Console.WriteLine($"[{NOW()}]친구 신청 수락 에러");
                         }
-                        Serv.Re_flag = true;
+                        serv.Re_flag = true;
                     }
                     catch (Exception ex)
                     {
@@ -528,7 +532,7 @@ namespace Server
                         {
                             Console.WriteLine($"[{NOW()}]친구 삭제 에러");
                         }
-                        Serv.Re_flag = true;
+                        serv.Re_flag = true;
                     }
                     catch (Exception ex)
                     {
@@ -539,13 +543,14 @@ namespace Server
 
             void list_th()    //유저 리스트, 친구 리스트 동기화 쓰레드
             {
+                Console.WriteLine($"[{NOW()}]{info.id} 동기화");
                 try
                 {
-                    Serv.users_mutex.WaitOne();
-                    var copy = from user in Serv.users
+                    serv.users_mutex.WaitOne();
+                    var copy = from user in serv.users
                                where user.info.state != STATE.HIDE
                                select user.info.GetString();
-                    Serv.users_mutex.ReleaseMutex();
+                    serv.users_mutex.ReleaseMutex();
                     //유저 리스트 전송
                     MyMutex.WaitOne();
                     NETSTREAM.Write(stream, (int)SIGN.REFRESH);
@@ -627,7 +632,7 @@ namespace Server
 
             string Get_FriendQuery()
             {
-                return $"{GET_FIRENDS}{info.id}'";
+                return $"{GET_FIRENDS}{info.id}'{GET_FIRENDS1}";
             }
 
             string Get_SelFriendQuery(string id)
