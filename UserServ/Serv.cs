@@ -18,7 +18,7 @@ namespace Server
     static public partial class CONST
     {
         public const int PORT_USERSERV = 10005;             //유저 서버 포트
-        public const string IP_LOBBY = "10.10.20.48";       //로비 서버 IP
+        public const string IP_LOBBY = "10.10.20.47";       //로비 서버 IP
         public const int PORT_LOBBY = 7000;                 //로비 서버 포트
         //DP 연결 문자열
         public const string DB_CONN = "Server=10.10.20.213;Port=3306;Database=VoiceChat;Uid=root;Pwd=1234;Charset=utf8";
@@ -80,7 +80,7 @@ namespace Server
 
         static public void Write(NetworkStream stream, string str)
         {
-            stream.Write(BitConverter.GetBytes(str.Length), 0, sizeof(int));
+            stream.Write(BitConverter.GetBytes(Encoding.UTF8.GetBytes(str).Length), 0, sizeof(int));
             stream.Write(Encoding.UTF8.GetBytes(str), 0, Encoding.UTF8.GetBytes(str).Length);
         }
 
@@ -178,6 +178,10 @@ namespace Server
 
         void Lobby_th()             //로비 서버 쓰레드
         {
+            User temp;
+            STATE state;
+            string id;
+            string sign;
             while (th_flag)
             {
                 try
@@ -186,18 +190,28 @@ namespace Server
                     if (!string.IsNullOrEmpty(read))
                     {
                         Console.WriteLine($"[{NOW()}]로비로부터 받은 문자열:{read}");
-                        string id = read.Split(",".ToCharArray())[0];
-                        STATE state = (STATE)int.Parse(read.Split(",".ToCharArray())[1]);
-                        Console.WriteLine($"[{NOW()}]로비로부터 받은 값:{id},{state}");
-
+                        id = read.Split(",".ToCharArray())[1];
+                        sign = read.Split(",".ToCharArray())[0];
+                        //Consol.WriteLine($"[{NOW()}]로비로부터 받은 값:{id},{state}");               
                         try
                         {
-                            User temp = users.Find(x => x.info.id == id);
-                            users_mutex.WaitOne();
-                            temp.info.state = state;
-                            users_mutex.ReleaseMutex();
-
-                            Re_flag = true;
+                            switch (int.Parse(sign))
+                            {
+                                case 1:
+                                    state = (STATE)int.Parse(read.Split(",".ToCharArray())[3]);
+                                    temp = users.Find(x => x.info.id == id);
+                                    users_mutex.WaitOne();
+                                    temp.info.state = state;
+                                    users_mutex.ReleaseMutex();
+                                    temp.Refresh();
+                                    Re_flag = true;
+                                    break;
+                                case 2:
+                                    temp = users.Find(x => x.info.id == id);
+                                    temp.Refresh();
+                                    Re_flag = true;
+                                    break;
+                            }
                         }
                         catch (NullReferenceException ex)
                         {
@@ -211,6 +225,7 @@ namespace Server
                         th_flag = false;
                         if (listen != null)
                             listen.Stop();
+                        return;
                     }
                 }
                 catch (Exception ex)
@@ -219,6 +234,7 @@ namespace Server
                     th_flag = false;
                     if (listen != null)
                         listen.Stop();
+                    return;
                 }
             }
             Lobbystream.Close();
@@ -234,13 +250,12 @@ namespace Server
                 try
                 {
                     TcpClient client = listen.AcceptTcpClient();
-                    Console.WriteLine($"[{NOW()}]클라이언트 연결됨");
                     NetworkStream stream = client.GetStream();
 
                     string id = NETSTREAM.ReadStr(stream);
                     string nick = id.Split(",".ToCharArray())[1];
                     id = id.Split(",".ToCharArray())[0];
-
+                    Console.WriteLine($"[{NOW()}]클라이언트 연결됨({id},{nick})");
                     User user = new User(new Info(id, nick), stream, this);
                     Re_flag = true;
                 }
@@ -334,9 +349,9 @@ namespace Server
                                 return;
                         }
                     }
-                    catch
+                    catch(Exception ex)
                     {
-                        Console.WriteLine($"[{NOW()}]{info.id} 유저 연결 끊김");
+                        Console.WriteLine($"[{NOW()}]{info.id} 유저 연결 끊김{ex.StackTrace}");
                         Disconnect();
                         return;
                     }
@@ -345,34 +360,11 @@ namespace Server
 
             void Disconnect()   //유저 접속 종료 함수
             {
-                //using (MySqlConnection conn = new MySqlConnection(DB_CONN))
-                //{
-                //    try
-                //    {
-                //        conn.Open();
-                //        if (conn.Ping() == false)
-                //        {
-                //            Console.WriteLine($"[{NOW()}]유저 종료 DB 연결 에러");
-                //            return;
-                //        }
-                //        string query = Update_OutQuery();
-                //        MySqlCommand comm = new MySqlCommand(query, conn);
-
-                //        int result = comm.ExecuteNonQuery();
-                //        if (result < 0)
-                //            Console.WriteLine($"[{NOW()}]유저 종료 DB 실행 에러");
-                //        else
-                //            Console.WriteLine($"[{NOW()}]유저 종료 DB 업데이트");
-                //    }
-                //    catch (Exception ex)
-                //    {
-                //        Console.WriteLine($"[{NOW()}]유저 종료 DB 에러 {ex.Message}");
-                //    }
-                //}
                 Serv.RefreshEvent -= Refresh;
                 Serv.users_mutex.WaitOne();
                 Serv.users.Remove(this);
                 Serv.users_mutex.ReleaseMutex();
+                Serv.Re_flag = true;
                 stream.Close();
             }
 
@@ -380,13 +372,42 @@ namespace Server
             {
                 string id = string.Empty;
                 string num = string.Empty;
-                string title = string.Empty;
+                //string title = string.Empty;
                 string origin = NETSTREAM.ReadStr(stream);
                 if (sign == (int)SIGN.INVITE)
                 { 
                     id = origin.Split(",".ToCharArray())[0];
                     num = origin.Split(",".ToCharArray())[1];
-                    title = origin.Split(",".ToCharArray())[2];
+                    //title = origin.Split(",".ToCharArray())[2];
+
+                    using (MySqlConnection conn = new MySqlConnection(DB_CONN))
+                    {
+                        try
+                        {
+                            conn.Open();
+                            if (conn.Ping() == false)
+                            {
+                                Console.WriteLine($"[{NOW()}]친구 초대 DB 연결 에러");
+                                return;
+                            }
+                            string query = Get_SelFriendQuery(id);
+                            MySqlCommand comm = new MySqlCommand(query, conn);
+
+                            using (MySqlDataReader reader = comm.ExecuteReader())
+                            {
+                                reader.Read();
+                                Console.WriteLine($"[{NOW()}]{reader[0]} 위치:{reader[3]}");
+                                if ((string) reader[3] != "로비")
+                                {
+                                    return;
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[{NOW()}]친구 초대 DB 에러 {ex.Message} {ex.StackTrace}");
+                        }
+                    }
                 }
                 else if(sign== (int) SIGN.ADD_FRIEND)
                 {
@@ -428,7 +449,10 @@ namespace Server
                     temp.MyMutex.WaitOne();
                     NETSTREAM.Write(temp.stream, sign);              //sign 전송
                     if(sign == (int) SIGN.INVITE)
-                        NETSTREAM.Write(temp.stream, info.GetString()+$",{num},{title}");
+                    { 
+                        NETSTREAM.Write(temp.stream, $"{info.nick_name}({info.id}),{num}");
+                        Console.WriteLine($"[{NOW()}]{id} 유저 초대 {info.id}가 {num}번방으로 초대");
+                    }
                     else
                         NETSTREAM.Write(temp.stream, info.GetString());
                     temp.MyMutex.ReleaseMutex();
@@ -558,9 +582,9 @@ namespace Server
                     }
                     MyMutex.ReleaseMutex();
                 }
-                catch
+                catch(Exception ex)
                 {
-                    Console.WriteLine($"[{NOW()}]동기화 에러");
+                    Console.WriteLine($"[{NOW()}]동기화 에러 {ex.Message} {ex.StackTrace}");
                     MyMutex.Close();
                 }
             }
@@ -608,7 +632,7 @@ namespace Server
 
             string Get_SelFriendQuery(string id)
             {
-                return $"{GET_FIRENDS}{id}{GET_FIRENDS2}{info.id}'";
+                return $"{GET_FIRENDS}{info.id}{GET_FIRENDS2}{id}'";
             }
 
             string Get_AcceptQuery(string id, string friendid)

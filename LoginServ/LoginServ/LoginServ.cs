@@ -21,10 +21,10 @@ namespace LoginServ
         public const string LOGIN_QUERY1 = "select id, nickname, state, location from users where id = '";
         public const string LOGIN_QUERY2 = "' and pass = '";
         //중복 확인 쿼리
-        public const string FIND_QUERY = "' or nick = '";
+        public const string FIND_QUERY = "' or nickname = '";
         //회원가입 쿼리 문자열
-        public const string SIGNIN_QUERY1 = "insert into users(id, pass, nickname, signin) values('";
-        public const string SIGNIN_QUERY2 = "',now())";
+        public const string SIGNIN_QUERY1 = "insert into users(id, pass, nickname, signin, lastout, state) values('";
+        public const string SIGNIN_QUERY2 = "',now(), now(), 0)";
         //현재 시간 반환
         public static string NOW() => DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss");
 
@@ -44,7 +44,7 @@ namespace LoginServ
 
         static public void Write(NetworkStream stream, string str)
         {
-            stream.Write(BitConverter.GetBytes(str.Length), 0, sizeof(int));
+            stream.Write(BitConverter.GetBytes(Encoding.UTF8.GetBytes(str).Length), 0, sizeof(int));
             stream.Write(Encoding.UTF8.GetBytes(str), 0, Encoding.UTF8.GetBytes(str).Length);
         }
 
@@ -178,9 +178,14 @@ namespace LoginServ
                         if (reader.HasRows)
                         {
                             reader.Read();
-                            NETSTREAM.Write(stream, 1);
-                            NETSTREAM.Write(stream, GetLoignRow(reader));
-                            Console.WriteLine($"[{NOW()}]로그인 성공: {id}");
+                            if((int) reader[2] <= 0)
+                            {
+                                NETSTREAM.Write(stream, 1);
+                                NETSTREAM.Write(stream, GetLoignRow(reader));
+                                Console.WriteLine($"[{NOW()}]로그인 성공: {id}");
+                            }
+                            else
+                                NETSTREAM.Write(stream, 0);
                         }
                         else
                             NETSTREAM.Write(stream, 0);
@@ -220,7 +225,7 @@ namespace LoginServ
                             if(result > 0)
                             {
                                 NETSTREAM.Write(stream, 2);
-                                Console.WriteLine($"[{NOW()}]회원가입 성공: {id}");
+                                Console.WriteLine($"[{NOW()}]회원가입 성공: {id}{nick}");
                             }
                         }
                         else
